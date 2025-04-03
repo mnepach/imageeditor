@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Основная панель инструментов -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btn_pan"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Pan"
+                android:src="@android:drawable/ic_menu_mylocation" />
+
+            <ImageButton
+                android:id="@+id/btn_draw"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/draw"
+                android:src="@android:drawable/ic_menu_edit" />
+
+            <ImageButton
+                android:id="@+id/btn_rect"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Rectangle"
+                android:src="@android:drawable/ic_menu_crop" />
+
+            <ImageButton
+                android:id="@+id/btn_circle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Circle"
+                android:src="@android:drawable/ic_menu_compass" />
+
+            <ImageButton
+                android:id="@+id/btn_text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/text"
+                android:src="@android:drawable/ic_dialog_email" />
+
+            <ImageButton
+                android:id="@+id/btn_color_picker"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Color Picker"
+                android:src="@android:drawable/ic_menu_view" />
+
+            <ImageButton
+                android:id="@+id/btn_stroke_width"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Stroke Width"
+                android:src="@android:drawable/ic_menu_sort_by_size" />
+
+            <ImageButton
+                android:id="@+id/btn_undo"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/undo"
+                android:src="@android:drawable/ic_menu_revert" />
+
+            <ImageButton
+                android:id="@+id/btn_redo"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/redo"
+                android:src="@android:drawable/ic_menu_rotate" />
+
+            <ImageButton
+                android:id="@+id/btn_rotate_left"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Rotate Left"
+                android:src="@android:drawable/ic_menu_rotate" />
+
+            <ImageButton
+                android:id="@+id/btn_rotate_right"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Rotate Right"
+                android:src="@android:drawable/ic_menu_rotate" />
+
+            <ImageButton
+                android:id="@+id/btn_flip_horizontal"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Flip Horizontal"
+                android:src="@android:drawable/ic_menu_always_landscape_portrait" />
+
+            <ImageButton
+                android:id="@+id/btn_flip_vertical"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Flip Vertical"
+                android:src="@android:drawable/ic_menu_always_landscape_portrait" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Выбор цвета -->
+    <LinearLayout
+        android:id="@+id/color_picker_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/btn_color_red"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:background="#FF0000" />
+
+        <View
+            android:id="@+id/btn_color_green"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:background="#00FF00" />
+
+        <View
+            android:id="@+id/btn_color_blue"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:background="#0000FF" />
+
+        <View
+            android:id="@+id/btn_color_black"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:background="#000000" />
+
+        <View
+            android:id="@+id/btn_color_white"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:background="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- Настройка толщины линии -->
+    <LinearLayout
+        android:id="@+id/stroke_width_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/brush_size" />
+
+        <SeekBar
+            android:id="@+id/seek_bar_stroke_width"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="50"
+            android:progress="5" />
+    </LinearLayout>
+
+    <!-- Настройки текста -->
+    <LinearLayout
+        android:id="@+id/text_options_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_bold"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/bold" />
+
+            <Button
+                android:id="@+id/btn_italic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/italic" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_font_sans"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sans" />
+
+            <Button
+                android:id="@+id/btn_font_serif"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Serif" />
+
+            <Button
+                android:id="@+id/btn_font_mono"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mono" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
