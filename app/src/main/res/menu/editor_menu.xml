@@ -1,4 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_open"
+        android:icon="@android:drawable/ic_menu_gallery"
+        android:title="Открыть"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_camera"
+        android:icon="@android:drawable/ic_menu_camera"
+        android:title="Камера"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_save"
+        android:icon="@android:drawable/ic_menu_save"
+        android:title="Сохранить"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_crop"
+        android:icon="@android:drawable/ic_menu_crop"
+        android:title="Обрезать"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_zoom"
+        android:icon="@android:drawable/ic_menu_zoom"
+        android:title="Масштаб"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_reset"
+        android:title="Сбросить"
+        app:showAsAction="never" />
 
 </menu>
