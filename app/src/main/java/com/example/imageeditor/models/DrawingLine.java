@@ -2,6 +2,7 @@ package com.example.imageeditor.models;
 
 import android.graphics.Canvas;
 import android.graphics.Path;
+import android.graphics.Paint;
 
 public class DrawingLine extends DrawingObject {
     private Path path;
