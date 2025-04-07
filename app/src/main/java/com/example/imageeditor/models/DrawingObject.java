@@ -28,6 +28,28 @@ public abstract class DrawingObject {
         this.endY = endY;
     }
 
+    public void updateStartPoint(float startX, float startY) {
+        this.startX = startX;
+        this.startY = startY;
+    }
+
+    // Добавляем геттеры
+    public float getStartX() {
+        return startX;
+    }
+
+    public float getStartY() {
+        return startY;
+    }
+
+    public float getEndX() {
+        return endX;
+    }
+
+    public float getEndY() {
+        return endY;
+    }
+
     public abstract void draw(Canvas canvas);
 
     public boolean containsPoint(float x, float y) {

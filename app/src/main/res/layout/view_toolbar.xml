@@ -27,7 +27,8 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="@string/redo"
-                android:src="@android:drawable/ic_menu_rotate" />
+                android:src="@android:drawable/ic_menu_revert"
+                android:rotation="180" />
 
             <ImageButton
                 android:id="@+id/btnCrop"
@@ -62,7 +63,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="@string/shape"
-                android:src="@android:drawable/ic_menu_crop" />
+                android:src="@android:drawable/ic_menu_gallery" />
 
             <ImageButton
                 android:id="@+id/btnText"

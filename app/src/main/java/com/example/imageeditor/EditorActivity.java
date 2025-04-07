@@ -53,6 +53,7 @@ public class EditorActivity extends AppCompatActivity {
     private CheckBox checkBoxBold;
     private CheckBox checkBoxItalic;
     private Spinner spinnerFont;
+    private Button btnConfirmCrop;
 
     private int currentColor = 0xFF000000; // Black color by default
     private int currentBrushSize = 5;
@@ -90,6 +91,7 @@ public class EditorActivity extends AppCompatActivity {
         checkBoxBold = findViewById(R.id.checkBoxBold);
         checkBoxItalic = findViewById(R.id.checkBoxItalic);
         spinnerFont = findViewById(R.id.spinnerFont);
+        btnConfirmCrop = findViewById(R.id.btnConfirmCrop);
 
         setupButtons();
         setupToolbarView();
@@ -125,7 +127,12 @@ public class EditorActivity extends AppCompatActivity {
                         hideAllPanels();
                         break;
                     case CROP:
-                        editorView.startCropMode();
+                        if (editorView.isCropModeActive()) {
+                            btnConfirmCrop.setVisibility(View.VISIBLE);
+                        } else {
+                            editorView.startCropMode();
+                            btnConfirmCrop.setVisibility(View.VISIBLE);
+                        }
                         hideAllPanels();
                         break;
                     case ROTATE:
@@ -157,10 +164,16 @@ public class EditorActivity extends AppCompatActivity {
         });
     }
 
+
     private void setupButtons() {
         // Setup shape buttons
         Button btnRectangle = findViewById(R.id.btnRectangle);
         Button btnCircle = findViewById(R.id.btnCircle);
+
+        btnConfirmCrop.setOnClickListener(v -> {
+            editorView.applyCrop();
+            btnConfirmCrop.setVisibility(View.GONE);
+        });
 
         btnRectangle.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -169,6 +182,7 @@ public class EditorActivity extends AppCompatActivity {
                 editorView.setDrawingMode(EditorView.DrawingMode.RECTANGLE);
             }
         });
+
 
         btnCircle.setOnClickListener(new View.OnClickListener() {
             @Override
