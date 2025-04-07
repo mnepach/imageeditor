@@ -37,7 +37,7 @@ public class ToolbarView extends LinearLayout {
     }
 
     private void init(Context context) {
-        LayoutInflater.from(context).inflate(R.layout.view_toolbar_new, this, true);
+        LayoutInflater.from(context).inflate(R.layout.view_toolbar, this, true);
 
         // Initialize buttons with appropriate IDs from the layout
         ImageButton btnUndo = findViewById(R.id.btnUndo);

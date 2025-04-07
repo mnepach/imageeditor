@@ -3,7 +3,6 @@ package com.example.imageeditor.views;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -13,55 +12,58 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.example.imageeditor.models.DrawingCircle;
+import com.example.imageeditor.models.DrawingLine;
+import com.example.imageeditor.models.DrawingRectangle;
+import com.example.imageeditor.models.DrawingText;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
 public class EditorView extends View {
 
-    // Режимы редактирования
-    public static final int MODE_PAN = 0;
-    public static final int MODE_DRAW = 1;
-    public static final int MODE_RECT = 2;
-    public static final int MODE_CIRCLE = 3;
-    public static final int MODE_TEXT = 4;
+    // Drawing modes
+    public enum DrawingMode {
+        NONE, LINE, RECTANGLE, CIRCLE, TEXT
+    }
 
-    // Текущий режим редактирования
-    private int currentMode = MODE_PAN;
+    private DrawingMode currentDrawingMode = DrawingMode.NONE;
+    private boolean cropMode = false;
 
-    // Исходное изображение и его копия для редактирования
-    private Bitmap originalImage;
-    private Bitmap workingImage;
-
-    // Матрица для трансформаций изображения
+    // Original image and working copy
+    private Bitmap originalBitmap;
+    private Bitmap workingBitmap;
     private Matrix imageMatrix;
 
-    // Параметры рисования
+    // Drawing parameters
     private Paint paint;
-    private int currentColor = Color.BLACK;
-    private float currentStrokeWidth = 5f;
+    private int brushColor = 0xFF000000; // Black by default
+    private float brushSize = 5f;
 
-    // Для рисования линий
+    // For drawing lines
     private Path currentPath;
+    private float lastX, lastY;
 
-    // Для рисования фигур
-    private float startX, startY, endX, endY;
+    // For drawing shapes
+    private float startX, startY;
 
-    // Для добавления текста
-    private String currentText = "";
-    private float textX, textY;
-    private Typeface currentTypeface = Typeface.DEFAULT;
-    private boolean isBold = false;
-    private boolean isItalic = false;
+    // For text drawing
+    private String drawingText = "";
+    private String fontFamily = "sans-serif";
+    private int textStyle = Typeface.NORMAL;
+    private float textSize = 40f;
+    private int textColor = 0xFF000000;
 
-    // Списки нарисованных объектов
-    private List<DrawObject> drawObjects = new ArrayList<>();
+    // Crop rectangle
+    private RectF cropRect;
 
-    // Стеки для отмены/повтора действий
-    private Stack<DrawCommand> undoStack = new Stack<>();
-    private Stack<DrawCommand> redoStack = new Stack<>();
+    // Lists of drawing objects and operations
+    private List<Object> drawingObjects = new ArrayList<>();
+    private Stack<Object> undoStack = new Stack<>();
+    private Stack<Object> redoStack = new Stack<>();
 
-    // Конструкторы
+    // Constructors
     public EditorView(Context context) {
         super(context);
         init();
@@ -77,255 +79,84 @@ public class EditorView extends View {
         init();
     }
 
-    // Инициализация компонентов
     private void init() {
-        imageMatrix = new Matrix();
+        // Initialize paint
         paint = new Paint();
         paint.setAntiAlias(true);
         paint.setDither(true);
-        paint.setColor(currentColor);
+        paint.setColor(brushColor);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeJoin(Paint.Join.ROUND);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeWidth(currentStrokeWidth);
-    }
+        paint.setStrokeWidth(brushSize);
 
-    // Установка изображения
-    public void setImage(Bitmap bitmap) {
-        originalImage = bitmap;
-        workingImage = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-        resetMatrix();
-        invalidate();
-    }
-
-    // Сброс матрицы трансформации
-    private void resetMatrix() {
-        imageMatrix.reset();
-        if (originalImage != null) {
-            float scaleX = (float) getWidth() / originalImage.getWidth();
-            float scaleY = (float) getHeight() / originalImage.getHeight();
-            float scale = Math.min(scaleX, scaleY);
-
-            float dx = (getWidth() - originalImage.getWidth() * scale) / 2;
-            float dy = (getHeight() - originalImage.getHeight() * scale) / 2;
-
-            imageMatrix.setScale(scale, scale);
-            imageMatrix.postTranslate(dx, dy);
-        }
-    }
-
-    // Получение текущего изображения
-    public Bitmap getEditedImage() {
-        if (workingImage == null) return null;
-
-        Bitmap result = Bitmap.createBitmap(workingImage.getWidth(), workingImage.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(result);
-        canvas.drawBitmap(workingImage, 0, 0, null);
-
-        // Отрисовка всех объектов на результирующем изображении
-        Matrix inverseMatrix = new Matrix();
-        imageMatrix.invert(inverseMatrix);
-
-        for (DrawObject obj : drawObjects) {
-            obj.draw(canvas, inverseMatrix);
-        }
-
-        return result;
-    }
-
-    // Установка режима редактирования
-    public void setMode(int mode) {
-        currentMode = mode;
-    }
-
-    // Установка цвета
-    public void setColor(int color) {
-        currentColor = color;
-        paint.setColor(color);
-    }
-
-    // Установка толщины линии
-    public void setStrokeWidth(float width) {
-        currentStrokeWidth = width;
-        paint.setStrokeWidth(width);
-    }
-
-    // Установка текста
-    public void setText(String text) {
-        currentText = text;
-    }
-
-    // Установка шрифта
-    public void setTypeface(Typeface typeface) {
-        currentTypeface = typeface;
-    }
-
-    // Установка стиля текста
-    public void setTextStyle(boolean bold, boolean italic) {
-        isBold = bold;
-        isItalic = italic;
-
-        int style = Typeface.NORMAL;
-        if (bold && italic) {
-            style = Typeface.BOLD_ITALIC;
-        } else if (bold) {
-            style = Typeface.BOLD;
-        } else if (italic) {
-            style = Typeface.ITALIC;
-        }
-
-        paint.setTypeface(Typeface.create(currentTypeface, style));
-    }
-
-    // Поворот изображения
-    public void rotateImage(float degrees) {
-        Matrix rotateMatrix = new Matrix();
-        rotateMatrix.setRotate(degrees, workingImage.getWidth() / 2f, workingImage.getHeight() / 2f);
-
-        Bitmap rotated = Bitmap.createBitmap(
-                workingImage, 0, 0, workingImage.getWidth(), workingImage.getHeight(),
-                rotateMatrix, true
-        );
-
-        workingImage = rotated;
-        resetMatrix();
-        invalidate();
-
-        // Добавление в стек отмены
-        undoStack.push(new RotateCommand(degrees));
-        redoStack.clear();
-    }
-
-    // Отзеркаливание изображения
-    public void flipImage(boolean horizontal) {
-        Matrix flipMatrix = new Matrix();
-
-        if (horizontal) {
-            flipMatrix.setScale(-1, 1);
-            flipMatrix.postTranslate(workingImage.getWidth(), 0);
-        } else {
-            flipMatrix.setScale(1, -1);
-            flipMatrix.postTranslate(0, workingImage.getHeight());
-        }
-
-        Bitmap flipped = Bitmap.createBitmap(
-                workingImage, 0, 0, workingImage.getWidth(), workingImage.getHeight(),
-                flipMatrix, true
-        );
-
-        workingImage = flipped;
-        resetMatrix();
-        invalidate();
-
-        // Добавление в стек отмены
-        undoStack.push(new FlipCommand(horizontal));
-        redoStack.clear();
-    }
-
-    // Обрезка изображения
-    public void cropImage(RectF cropRect) {
-        Matrix inverseMatrix = new Matrix();
-        imageMatrix.invert(inverseMatrix);
-
-        RectF mappedRect = new RectF();
-        inverseMatrix.mapRect(mappedRect, cropRect);
-
-        int x = (int) mappedRect.left;
-        int y = (int) mappedRect.top;
-        int width = (int) mappedRect.width();
-        int height = (int) mappedRect.height();
-
-        // Проверка границ
-        x = Math.max(0, x);
-        y = Math.max(0, y);
-        width = Math.min(width, workingImage.getWidth() - x);
-        height = Math.min(height, workingImage.getHeight() - y);
-
-        if (width <= 0 || height <= 0) return;
-
-        Bitmap cropped = Bitmap.createBitmap(workingImage, x, y, width, height);
-        workingImage = cropped;
-        resetMatrix();
-        invalidate();
-
-        // Добавление в стек отмены
-        undoStack.push(new CropCommand(new RectF(x, y, x + width, y + height)));
-        redoStack.clear();
-    }
-
-    // Отмена последнего действия
-    public boolean undo() {
-        if (undoStack.isEmpty()) return false;
-
-        DrawCommand command = undoStack.pop();
-        redoStack.push(command);
-
-        if (command instanceof AddObjectCommand) {
-            int index = ((AddObjectCommand) command).getObjectIndex();
-            if (index >= 0 && index < drawObjects.size()) {
-                drawObjects.remove(index);
-            }
-        } else {
-            // Для операций с изображением нужно восстановить предыдущее состояние
-            // В реальном приложении здесь должно быть сохранение состояний
-        }
-
-        invalidate();
-        return true;
-    }
-
-    // Повтор последнего отмененного действия
-    public boolean redo() {
-        if (redoStack.isEmpty()) return false;
-
-        DrawCommand command = redoStack.pop();
-        undoStack.push(command);
-
-        if (command instanceof AddObjectCommand) {
-            DrawObject obj = ((AddObjectCommand) command).getObject();
-            if (obj != null) {
-                drawObjects.add(obj);
-            }
-        } else {
-            // Для операций с изображением нужно восстановить следующее состояние
-            // В реальном приложении здесь должно быть восстановление состояний
-        }
-
-        invalidate();
-        return true;
+        // Initialize matrix
+        imageMatrix = new Matrix();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        // Отрисовка фона
-        canvas.drawColor(Color.LTGRAY);
+        // Draw background
+        canvas.drawARGB(255, 240, 240, 240);
 
-        // Отрисовка изображения
-        if (workingImage != null) {
-            canvas.drawBitmap(workingImage, imageMatrix, null);
+        // Draw bitmap if available
+        if (workingBitmap != null) {
+            canvas.drawBitmap(workingBitmap, imageMatrix, null);
         }
 
-        // Отрисовка всех объектов
-        for (DrawObject obj : drawObjects) {
-            obj.draw(canvas, null);
-        }
-
-        // Отрисовка текущего объекта (при рисовании)
-        if (currentMode == MODE_DRAW && currentPath != null) {
-            canvas.drawPath(currentPath, paint);
-        } else if ((currentMode == MODE_RECT || currentMode == MODE_CIRCLE) && startX != endX && startY != endY) {
-            Paint tempPaint = new Paint(paint);
-
-            if (currentMode == MODE_RECT) {
-                canvas.drawRect(startX, startY, endX, endY, tempPaint);
-            } else {
-                float radius = (float) Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) / 2;
-                float centerX = (startX + endX) / 2;
-                float centerY = (startY + endY) / 2;
-                canvas.drawCircle(centerX, centerY, radius, tempPaint);
+        // Draw all existing objects
+        for (Object obj : drawingObjects) {
+            if (obj instanceof DrawingLine) {
+                DrawingLine line = (DrawingLine) obj;
+                Paint linePaint = new Paint(paint);
+                linePaint.setColor(line.getColor());
+                linePaint.setStrokeWidth(line.getStrokeWidth());
+                canvas.drawPath(line.getPath(), linePaint);
+            } else if (obj instanceof DrawingRectangle) {
+                DrawingRectangle rect = (DrawingRectangle) obj;
+                Paint rectPaint = new Paint(paint);
+                rectPaint.setColor(rect.getColor());
+                rectPaint.setStrokeWidth(rect.getStrokeWidth());
+                canvas.drawRect(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom(), rectPaint);
+            } else if (obj instanceof DrawingCircle) {
+                DrawingCircle circle = (DrawingCircle) obj;
+                Paint circlePaint = new Paint(paint);
+                circlePaint.setColor(circle.getColor());
+                circlePaint.setStrokeWidth(circle.getStrokeWidth());
+                canvas.drawCircle(circle.getCenterX(), circle.getCenterY(), circle.getRadius(), circlePaint);
+            } else if (obj instanceof DrawingText) {
+                DrawingText text = (DrawingText) obj;
+                Paint textPaint = new Paint();
+                textPaint.setAntiAlias(true);
+                textPaint.setColor(text.getColor());
+                textPaint.setTextSize(text.getTextSize());
+                textPaint.setTypeface(Typeface.create(text.getFontFamily(), text.getStyle()));
+                canvas.drawText(text.getText(), text.getX(), text.getY(), textPaint);
             }
+        }
+
+        // Draw current path if drawing
+        if (currentDrawingMode == DrawingMode.LINE && currentPath != null) {
+            canvas.drawPath(currentPath, paint);
+        }
+
+        // Draw crop rectangle if in crop mode
+        if (cropMode && cropRect != null) {
+            Paint cropPaint = new Paint();
+            cropPaint.setColor(0xFFFFFFFF);
+            cropPaint.setStyle(Paint.Style.STROKE);
+            cropPaint.setStrokeWidth(2f);
+            canvas.drawRect(cropRect, cropPaint);
+
+            // Draw handles at corners
+            float handleRadius = 10f;
+            cropPaint.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(cropRect.left, cropRect.top, handleRadius, cropPaint);
+            canvas.drawCircle(cropRect.right, cropRect.top, handleRadius, cropPaint);
+            canvas.drawCircle(cropRect.left, cropRect.bottom, handleRadius, cropPaint);
+            canvas.drawCircle(cropRect.right, cropRect.bottom, handleRadius, cropPaint);
         }
     }
 
@@ -336,261 +167,343 @@ public class EditorView extends View {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                handleTouchStart(x, y);
-                break;
+                if (cropMode) {
+                    handleCropStart(x, y);
+                } else {
+                    handleDrawStart(x, y);
+                }
+                invalidate();
+                return true;
             case MotionEvent.ACTION_MOVE:
-                handleTouchMove(x, y);
-                break;
+                if (cropMode) {
+                    handleCropMove(x, y);
+                } else {
+                    handleDrawMove(x, y);
+                }
+                invalidate();
+                return true;
             case MotionEvent.ACTION_UP:
-                handleTouchEnd(x, y);
-                break;
+                if (cropMode) {
+                    handleCropEnd();
+                } else {
+                    handleDrawEnd();
+                }
+                invalidate();
+                return true;
+            default:
+                return super.onTouchEvent(event);
         }
-
-        invalidate();
-        return true;
     }
 
-    private void handleTouchStart(float x, float y) {
-        switch (currentMode) {
-            case MODE_DRAW:
+    private void handleDrawStart(float x, float y) {
+        lastX = x;
+        lastY = y;
+
+        switch (currentDrawingMode) {
+            case LINE:
                 currentPath = new Path();
                 currentPath.moveTo(x, y);
                 break;
-            case MODE_RECT:
-            case MODE_CIRCLE:
+            case RECTANGLE:
+            case CIRCLE:
                 startX = x;
                 startY = y;
-                endX = x;
-                endY = y;
                 break;
-            case MODE_TEXT:
-                textX = x;
-                textY = y;
-                // Здесь должен быть вызов диалога для ввода текста
-                break;
-        }
-    }
-
-    private void handleTouchMove(float x, float y) {
-        switch (currentMode) {
-            case MODE_DRAW:
-                currentPath.lineTo(x, y);
-                break;
-            case MODE_RECT:
-            case MODE_CIRCLE:
-                endX = x;
-                endY = y;
+            case TEXT:
+                // For text, we just store the position. Actual text addition is handled elsewhere
+                if (!drawingText.isEmpty()) {
+                    addTextAtPosition(x, y);
+                }
                 break;
         }
     }
 
-    private void handleTouchEnd(float x, float y) {
-        switch (currentMode) {
-            case MODE_DRAW:
+    private void handleDrawMove(float x, float y) {
+        switch (currentDrawingMode) {
+            case LINE:
                 if (currentPath != null) {
-                    DrawObject pathObj = new PathObject(
-                            new Path(currentPath), new Paint(paint)
-                    );
-                    drawObjects.add(pathObj);
-                    undoStack.push(new AddObjectCommand(pathObj, drawObjects.size() - 1));
+                    currentPath.quadTo(
+                            lastX, lastY,
+                            (x + lastX) / 2, (y + lastY) / 2);
+                    lastX = x;
+                    lastY = y;
+                }
+                break;
+        }
+    }
+
+    private void handleDrawEnd() {
+        switch (currentDrawingMode) {
+            case LINE:
+                if (currentPath != null) {
+                    DrawingLine line = new DrawingLine(new Path(currentPath), brushColor, brushSize);
+                    drawingObjects.add(line);
+                    undoStack.push(line);
                     redoStack.clear();
                     currentPath = null;
                 }
                 break;
-            case MODE_RECT:
-                DrawObject rectObj = new RectObject(
-                        startX, startY, endX, endY, new Paint(paint)
-                );
-                drawObjects.add(rectObj);
-                undoStack.push(new AddObjectCommand(rectObj, drawObjects.size() - 1));
+            case RECTANGLE:
+                float left = Math.min(startX, lastX);
+                float top = Math.min(startY, lastY);
+                float right = Math.max(startX, lastX);
+                float bottom = Math.max(startY, lastY);
+
+                DrawingRectangle rect = new DrawingRectangle(left, top, right, bottom, brushColor, brushSize);
+                drawingObjects.add(rect);
+                undoStack.push(rect);
                 redoStack.clear();
                 break;
-            case MODE_CIRCLE:
-                float radius = (float) Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) / 2;
-                float centerX = (startX + endX) / 2;
-                float centerY = (startY + endY) / 2;
+            case CIRCLE:
+                float centerX = (startX + lastX) / 2;
+                float centerY = (startY + lastY) / 2;
+                float radius = (float) Math.sqrt(Math.pow(centerX - startX, 2) + Math.pow(centerY - startY, 2));
 
-                DrawObject circleObj = new CircleObject(
-                        centerX, centerY, radius, new Paint(paint)
-                );
-                drawObjects.add(circleObj);
-                undoStack.push(new AddObjectCommand(circleObj, drawObjects.size() - 1));
+                DrawingCircle circle = new DrawingCircle(centerX, centerY, radius, brushColor, brushSize);
+                drawingObjects.add(circle);
+                undoStack.push(circle);
                 redoStack.clear();
                 break;
-            case MODE_TEXT:
-                if (!currentText.isEmpty()) {
-                    DrawObject textObj = new TextObject(
-                            currentText, textX, textY, new Paint(paint)
-                    );
-                    drawObjects.add(textObj);
-                    undoStack.push(new AddObjectCommand(textObj, drawObjects.size() - 1));
-                    redoStack.clear();
-                }
-                break;
         }
     }
 
-    // Вспомогательные классы для нарисованных объектов
-
-    // Базовый класс для всех объектов рисования
-    abstract class DrawObject {
-        Paint paint;
-
-        DrawObject(Paint paint) {
-            this.paint = new Paint(paint);
+    private void handleCropStart(float x, float y) {
+        if (cropRect == null) {
+            cropRect = new RectF(x, y, x, y);
         }
-
-        abstract void draw(Canvas canvas, Matrix transformMatrix);
     }
 
-    // Класс для линий (путей)
-    class PathObject extends DrawObject {
-        Path path;
-
-        PathObject(Path path, Paint paint) {
-            super(paint);
-            this.path = new Path(path);
+    private void handleCropMove(float x, float y) {
+        if (cropRect != null) {
+            cropRect.right = x;
+            cropRect.bottom = y;
         }
+    }
 
-        @Override
-        void draw(Canvas canvas, Matrix transformMatrix) {
-            if (transformMatrix != null) {
-                Path transformedPath = new Path();
-                path.transform(transformMatrix, transformedPath);
-                canvas.drawPath(transformedPath, paint);
-            } else {
-                canvas.drawPath(path, paint);
+    private void handleCropEnd() {
+        // Normalize crop rectangle (make sure left < right and top < bottom)
+        if (cropRect != null) {
+            if (cropRect.width() < 10 || cropRect.height() < 10) {
+                // If too small, cancel crop
+                cropRect = null;
+                return;
             }
+
+            // Otherwise, finalize crop rectangle
+            float left = Math.min(cropRect.left, cropRect.right);
+            float top = Math.min(cropRect.top, cropRect.bottom);
+            float right = Math.max(cropRect.left, cropRect.right);
+            float bottom = Math.max(cropRect.top, cropRect.bottom);
+
+            cropRect.set(left, top, right, bottom);
         }
     }
 
-    // Класс для прямоугольников
-    class RectObject extends DrawObject {
-        float left, top, right, bottom;
+    private void addTextAtPosition(float x, float y) {
+        DrawingText text = new DrawingText(drawingText, x, y, textColor, fontFamily, textStyle, textSize);
+        drawingObjects.add(text);
+        undoStack.push(text);
+        redoStack.clear();
+    }
 
-        RectObject(float left, float top, float right, float bottom, Paint paint) {
-            super(paint);
-            this.left = left;
-            this.top = top;
-            this.right = right;
-            this.bottom = bottom;
+    // Public methods for EditorActivity to use
+
+    public void setImageBitmap(Bitmap bitmap) {
+        originalBitmap = bitmap;
+        workingBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        fitImageToView();
+        invalidate();
+    }
+
+    private void fitImageToView() {
+        if (workingBitmap == null || getWidth() == 0 || getHeight() == 0) return;
+
+        imageMatrix.reset();
+
+        float scaleX = (float) getWidth() / workingBitmap.getWidth();
+        float scaleY = (float) getHeight() / workingBitmap.getHeight();
+        float scale = Math.min(scaleX, scaleY);
+
+        float dx = (getWidth() - workingBitmap.getWidth() * scale) / 2f;
+        float dy = (getHeight() - workingBitmap.getHeight() * scale) / 2f;
+
+        imageMatrix.setScale(scale, scale);
+        imageMatrix.postTranslate(dx, dy);
+    }
+
+    public void setDrawingMode(DrawingMode mode) {
+        this.currentDrawingMode = mode;
+        this.cropMode = false;
+    }
+
+    public void startCropMode() {
+        cropMode = true;
+        currentDrawingMode = DrawingMode.NONE;
+        cropRect = null;
+    }
+
+    public void rotateImage(int degrees) {
+        if (workingBitmap == null) return;
+
+        Matrix rotateMatrix = new Matrix();
+        rotateMatrix.setRotate(degrees, workingBitmap.getWidth() / 2f, workingBitmap.getHeight() / 2f);
+
+        Bitmap rotatedBitmap = Bitmap.createBitmap(
+                workingBitmap,
+                0, 0,
+                workingBitmap.getWidth(), workingBitmap.getHeight(),
+                rotateMatrix, true);
+
+        if (rotatedBitmap != workingBitmap) {
+            workingBitmap.recycle();
+            workingBitmap = rotatedBitmap;
         }
 
-        @Override
-        void draw(Canvas canvas, Matrix transformMatrix) {
-            if (transformMatrix != null) {
-                RectF rect = new RectF(left, top, right, bottom);
-                RectF transformedRect = new RectF();
-                transformMatrix.mapRect(transformedRect, rect);
-                canvas.drawRect(transformedRect, paint);
-            } else {
-                canvas.drawRect(left, top, right, bottom, paint);
+        fitImageToView();
+        invalidate();
+    }
+
+    public void flipImage() {
+        if (workingBitmap == null) return;
+
+        Matrix flipMatrix = new Matrix();
+        flipMatrix.setScale(-1, 1);
+        flipMatrix.postTranslate(workingBitmap.getWidth(), 0);
+
+        Bitmap flippedBitmap = Bitmap.createBitmap(
+                workingBitmap,
+                0, 0,
+                workingBitmap.getWidth(), workingBitmap.getHeight(),
+                flipMatrix, true);
+
+        if (flippedBitmap != workingBitmap) {
+            workingBitmap.recycle();
+            workingBitmap = flippedBitmap;
+        }
+
+        fitImageToView();
+        invalidate();
+    }
+
+    public void setBrushSize(int size) {
+        this.brushSize = size;
+        paint.setStrokeWidth(size);
+    }
+
+    public void setBrushColor(int color) {
+        this.brushColor = color;
+        paint.setColor(color);
+    }
+
+    public void setTextDrawingProperties(String text, String fontFamily, int style, int textSize, int color) {
+        this.drawingText = text;
+        this.fontFamily = fontFamily;
+        this.textStyle = style;
+        this.textSize = textSize;
+        this.textColor = color;
+    }
+
+    public void undo() {
+        if (!undoStack.isEmpty()) {
+            Object lastDrawn = undoStack.pop();
+            redoStack.push(lastDrawn);
+
+            // Rebuild drawing objects list
+            drawingObjects.clear();
+            for (Object obj : undoStack) {
+                drawingObjects.add(obj);
             }
+
+            invalidate();
         }
     }
 
-    // Класс для кругов
-    class CircleObject extends DrawObject {
-        float centerX, centerY, radius;
+    public void redo() {
+        if (!redoStack.isEmpty()) {
+            Object redoObj = redoStack.pop();
+            undoStack.push(redoObj);
+            drawingObjects.add(redoObj);
 
-        CircleObject(float centerX, float centerY, float radius, Paint paint) {
-            super(paint);
-            this.centerX = centerX;
-            this.centerY = centerY;
-            this.radius = radius;
+            invalidate();
         }
+    }
 
-        @Override
-        void draw(Canvas canvas, Matrix transformMatrix) {
-            if (transformMatrix != null) {
-                float[] points = new float[] {centerX, centerY};
-                transformMatrix.mapPoints(points);
+    public Bitmap getFinalBitmap() {
+        if (workingBitmap == null) return null;
 
-                // Для упрощения просто применяем масштаб к радиусу
+        // Create a new bitmap to draw everything on
+        Bitmap resultBitmap = Bitmap.createBitmap(
+                workingBitmap.getWidth(),
+                workingBitmap.getHeight(),
+                Bitmap.Config.ARGB_8888);
+
+        Canvas canvas = new Canvas(resultBitmap);
+
+        // Draw the original image first
+        canvas.drawBitmap(workingBitmap, 0, 0, null);
+
+        // Invert the image matrix to map drawing coordinates back to bitmap space
+        Matrix inverseMatrix = new Matrix();
+        imageMatrix.invert(inverseMatrix);
+
+        // Draw all objects onto the result bitmap
+        for (Object obj : drawingObjects) {
+            if (obj instanceof DrawingLine) {
+                DrawingLine line = (DrawingLine) obj;
+                Paint linePaint = new Paint(paint);
+                linePaint.setColor(line.getColor());
+                linePaint.setStrokeWidth(line.getStrokeWidth());
+
+                // Transform the path
+                Path transformedPath = new Path(line.getPath());
+                transformedPath.transform(inverseMatrix);
+
+                canvas.drawPath(transformedPath, linePaint);
+            } else if (obj instanceof DrawingRectangle) {
+                DrawingRectangle rect = (DrawingRectangle) obj;
+                Paint rectPaint = new Paint(paint);
+                rectPaint.setColor(rect.getColor());
+                rectPaint.setStrokeWidth(rect.getStrokeWidth());
+
+                // Transform the rectangle
+                RectF transformedRect = new RectF(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom());
+                inverseMatrix.mapRect(transformedRect);
+
+                canvas.drawRect(transformedRect, rectPaint);
+            } else if (obj instanceof DrawingCircle) {
+                DrawingCircle circle = (DrawingCircle) obj;
+                Paint circlePaint = new Paint(paint);
+                circlePaint.setColor(circle.getColor());
+                circlePaint.setStrokeWidth(circle.getStrokeWidth());
+
+                // Transform the circle
+                float[] center = new float[] {circle.getCenterX(), circle.getCenterY()};
+                inverseMatrix.mapPoints(center);
+
+                // Scale the radius - this is an approximation
                 float[] values = new float[9];
-                transformMatrix.getValues(values);
+                inverseMatrix.getValues(values);
                 float scaleX = values[Matrix.MSCALE_X];
                 float scaleY = values[Matrix.MSCALE_Y];
-                float scaledRadius = radius * Math.max(scaleX, scaleY);
+                float scaledRadius = circle.getRadius() / Math.max(Math.abs(scaleX), Math.abs(scaleY));
 
-                canvas.drawCircle(points[0], points[1], scaledRadius, paint);
-            } else {
-                canvas.drawCircle(centerX, centerY, radius, paint);
+                canvas.drawCircle(center[0], center[1], scaledRadius, circlePaint);
+            } else if (obj instanceof DrawingText) {
+                DrawingText text = (DrawingText) obj;
+                Paint textPaint = new Paint();
+                textPaint.setAntiAlias(true);
+                textPaint.setColor(text.getColor());
+                textPaint.setTextSize(text.getTextSize());
+                textPaint.setTypeface(Typeface.create(text.getFontFamily(), text.getStyle()));
+
+                // Transform the position
+                float[] position = new float[] {text.getX(), text.getY()};
+                inverseMatrix.mapPoints(position);
+
+                canvas.drawText(text.getText(), position[0], position[1], textPaint);
             }
         }
-    }
 
-    // Класс для текста
-    class TextObject extends DrawObject {
-        String text;
-        float x, y;
-
-        TextObject(String text, float x, float y, Paint paint) {
-            super(paint);
-            this.text = text;
-            this.x = x;
-            this.y = y;
-            this.paint.setStyle(Paint.Style.FILL);
-        }
-
-        @Override
-        void draw(Canvas canvas, Matrix transformMatrix) {
-            if (transformMatrix != null) {
-                float[] points = new float[] {x, y};
-                transformMatrix.mapPoints(points);
-                canvas.drawText(text, points[0], points[1], paint);
-            } else {
-                canvas.drawText(text, x, y, paint);
-            }
-        }
-    }
-
-    // Интерфейс для команд отмены/повтора
-    interface DrawCommand {}
-
-    // Класс для добавления объекта (для отмены/повтора)
-    class AddObjectCommand implements DrawCommand {
-        private DrawObject object;
-        private int objectIndex;
-
-        AddObjectCommand(DrawObject object, int index) {
-            this.object = object;
-            this.objectIndex = index;
-        }
-
-        DrawObject getObject() {
-            return object;
-        }
-
-        int getObjectIndex() {
-            return objectIndex;
-        }
-    }
-
-    // Класс для поворота изображения (для отмены/повтора)
-    class RotateCommand implements DrawCommand {
-        private float degrees;
-
-        RotateCommand(float degrees) {
-            this.degrees = degrees;
-        }
-    }
-
-    // Класс для отзеркаливания изображения (для отмены/повтора)
-    class FlipCommand implements DrawCommand {
-        private boolean horizontal;
-
-        FlipCommand(boolean horizontal) {
-            this.horizontal = horizontal;
-        }
-    }
-
-    // Класс для обрезки изображения (для отмены/повтора)
-    class CropCommand implements DrawCommand {
-        private RectF cropRect;
-
-        CropCommand(RectF cropRect) {
-            this.cropRect = cropRect;
-        }
+        return resultBitmap;
     }
 }
