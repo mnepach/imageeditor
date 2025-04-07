@@ -27,6 +27,7 @@ public class EditorView extends View {
     private DrawingObject selectedObject = null;
     private boolean isDragging = false;
     private float lastTouchX, lastTouchY;
+    private float[] lastTouchPoint = new float[2]; // For storing bitmap coordinates
 
     // Drawing modes
     public enum DrawingMode {
@@ -92,7 +93,7 @@ public class EditorView extends View {
             canvas.drawBitmap(workingBitmap, imageMatrix, null);
         }
 
-        // Сохраняем состояние холста и применяем imageMatrix для объектов
+        // Save canvas state and apply imageMatrix for objects
         canvas.save();
         canvas.concat(imageMatrix);
 
@@ -130,24 +131,33 @@ public class EditorView extends View {
         float x = event.getX();
         float y = event.getY();
 
+        // Convert screen coordinates to bitmap coordinates
+        Matrix inverseMatrix = new Matrix();
+        imageMatrix.invert(inverseMatrix);
+        float[] points = {x, y};
+        inverseMatrix.mapPoints(points);
+        float bitmapX = points[0];
+        float bitmapY = points[1];
+
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 if (cropMode) {
                     handleCropStart(x, y);
                 } else {
-                    // Проверяем, попал ли клик в существующий объект
+                    // Check if click is on existing object
                     selectedObject = null;
-                    for (DrawingObject obj : drawingObjects) {
-                        if (obj.containsPoint(x, y)) {
+                    for (int i = drawingObjects.size() - 1; i >= 0; i--) {
+                        DrawingObject obj = drawingObjects.get(i);
+                        if (obj.containsPoint(bitmapX, bitmapY)) {
                             selectedObject = obj;
                             isDragging = true;
-                            lastTouchX = x;
-                            lastTouchY = y;
+                            lastTouchPoint[0] = bitmapX;
+                            lastTouchPoint[1] = bitmapY;
                             break;
                         }
                     }
                     if (selectedObject == null) {
-                        handleDrawStart(x, y);
+                        handleDrawStart(bitmapX, bitmapY);
                     }
                 }
                 invalidate();
@@ -156,22 +166,16 @@ public class EditorView extends View {
                 if (cropMode) {
                     handleCropMove(x, y);
                 } else if (isDragging && selectedObject != null) {
-                    // Преобразуем экранные координаты в пространство битмапа
-                    Matrix inverseMatrix = new Matrix();
-                    imageMatrix.invert(inverseMatrix);
-                    float[] points = {x, y};
-                    inverseMatrix.mapPoints(points);
-                    float bitmapX = points[0];
-                    float bitmapY = points[1];
+                    float dx = bitmapX - lastTouchPoint[0];
+                    float dy = bitmapY - lastTouchPoint[1];
 
-                    float dx = bitmapX - lastTouchX;
-                    float dy = bitmapY - lastTouchY;
                     selectedObject.updateStartPoint(selectedObject.getStartX() + dx, selectedObject.getStartY() + dy);
                     selectedObject.updateEndPoint(selectedObject.getEndX() + dx, selectedObject.getEndY() + dy);
-                    lastTouchX = bitmapX;
-                    lastTouchY = bitmapY;
+
+                    lastTouchPoint[0] = bitmapX;
+                    lastTouchPoint[1] = bitmapY;
                 } else {
-                    handleDrawMove(x, y);
+                    handleDrawMove(bitmapX, bitmapY);
                 }
                 invalidate();
                 return true;
@@ -180,7 +184,6 @@ public class EditorView extends View {
                     handleCropEnd();
                 } else if (isDragging) {
                     isDragging = false;
-                    selectedObject = null;
                 } else {
                     handleDrawEnd();
                 }
@@ -195,15 +198,7 @@ public class EditorView extends View {
         return cropMode;
     }
 
-    private void handleDrawStart(float x, float y) {
-        // Преобразуем экранные координаты в пространство битмапа
-        Matrix inverseMatrix = new Matrix();
-        imageMatrix.invert(inverseMatrix);
-        float[] points = {x, y};
-        inverseMatrix.mapPoints(points);
-        float bitmapX = points[0];
-        float bitmapY = points[1];
-
+    private void handleDrawStart(float bitmapX, float bitmapY) {
         switch (currentDrawingMode) {
             case LINE:
                 currentDrawingObject = new DrawingLine(bitmapX, bitmapY, brushColor, brushSize);
@@ -222,16 +217,8 @@ public class EditorView extends View {
         }
     }
 
-    private void handleDrawMove(float x, float y) {
+    private void handleDrawMove(float bitmapX, float bitmapY) {
         if (currentDrawingObject != null) {
-            // Преобразуем экранные координаты в пространство битмапа
-            Matrix inverseMatrix = new Matrix();
-            imageMatrix.invert(inverseMatrix);
-            float[] points = {x, y};
-            inverseMatrix.mapPoints(points);
-            float bitmapX = points[0];
-            float bitmapY = points[1];
-
             if (currentDrawingObject instanceof DrawingLine) {
                 ((DrawingLine) currentDrawingObject).addPoint(bitmapX, bitmapY);
             } else {
@@ -297,43 +284,47 @@ public class EditorView extends View {
             float[] points = {cropRect.left, cropRect.top, cropRect.right, cropRect.bottom};
             inverseMatrix.mapPoints(points);
 
-            int x = (int) Math.max(points[0], 0);
-            int y = (int) Math.max(points[1], 0);
-            int width = (int) (Math.min(points[2], workingBitmap.getWidth()) - x);
-            int height = (int) (Math.min(points[3], workingBitmap.getHeight()) - y);
+            int x = (int) Math.max(Math.min(points[0], points[2]), 0);
+            int y = (int) Math.max(Math.min(points[1], points[3]), 0);
+            int width = (int) Math.min(Math.abs(points[2] - points[0]), workingBitmap.getWidth() - x);
+            int height = (int) Math.min(Math.abs(points[3] - points[1]), workingBitmap.getHeight() - y);
 
             if (width > 0 && height > 0) {
                 Bitmap croppedBitmap = Bitmap.createBitmap(workingBitmap, x, y, width, height);
                 workingBitmap.recycle();
                 workingBitmap = croppedBitmap;
 
-                // Корректируем координаты объектов
-                List<DrawingObject> objectsToRemove = new ArrayList<>();
+                // Adjust drawing objects coordinates
+                List<DrawingObject> objectsToKeep = new ArrayList<>();
                 for (DrawingObject obj : drawingObjects) {
                     float newStartX = obj.getStartX() - x;
                     float newStartY = obj.getStartY() - y;
                     float newEndX = obj.getEndX() - x;
                     float newEndY = obj.getEndY() - y;
 
-                    // Если объект полностью вне нового изображения, удаляем его
-                    if (newEndX < 0 || newStartX > width || newEndY < 0 || newStartY > height) {
-                        objectsToRemove.add(obj);
-                    } else {
+                    // Check if object is at least partially in the new image bounds
+                    boolean isVisible = !(newEndX < 0 || newStartX > width || newEndY < 0 || newStartY > height);
+                    if (isVisible) {
                         obj.updateStartPoint(newStartX, newStartY);
                         obj.updateEndPoint(newEndX, newEndY);
+                        objectsToKeep.add(obj);
                     }
                 }
-                drawingObjects.removeAll(objectsToRemove);
-                undoStack.removeAll(objectsToRemove);
 
+                // Replace the objects list with only the visible ones
+                drawingObjects.clear();
+                drawingObjects.addAll(objectsToKeep);
+
+                // Clear and rebuild undo stack
+                undoStack.clear();
+                for (DrawingObject obj : objectsToKeep) {
+                    undoStack.push(obj);
+                }
+                redoStack.clear();
+
+                // Reset transformations and fit the cropped image to view
                 imageMatrix.reset();
-                float scaleX = (float) getWidth() / workingBitmap.getWidth();
-                float scaleY = (float) getHeight() / workingBitmap.getHeight();
-                float scale = Math.min(scaleX, scaleY);
-                imageMatrix.setScale(scale, scale);
-                float dx = (getWidth() - workingBitmap.getWidth() * scale) / 2f;
-                float dy = (getHeight() - workingBitmap.getHeight() * scale) / 2f;
-                imageMatrix.postTranslate(dx, dy);
+                fitImageToView();
 
                 cropMode = false;
                 cropRect = null;
@@ -343,21 +334,33 @@ public class EditorView extends View {
     }
 
     public void setImageBitmap(Bitmap bitmap) {
-        originalBitmap = bitmap;
-        workingBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-        imageMatrix.reset(); // Сбрасываем матрицу
-        fitImageToView();
-        invalidate();
+        if (bitmap != null) {
+            originalBitmap = bitmap;
+            workingBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+            imageMatrix.reset();
+            fitImageToView();
+            invalidate();
+        }
     }
 
     private void fitImageToView() {
         if (workingBitmap == null || getWidth() == 0 || getHeight() == 0) return;
 
         imageMatrix.reset();
+
+        // Calculate scaling to fit the image without zooming in
         float scaleX = (float) getWidth() / workingBitmap.getWidth();
         float scaleY = (float) getHeight() / workingBitmap.getHeight();
         float scale = Math.min(scaleX, scaleY);
+
+        // If scale > 1, it means we'd zoom in - avoid that by setting scale to 1
+        if (scale > 1.0f) {
+            scale = 1.0f;
+        }
+
         imageMatrix.setScale(scale, scale);
+
+        // Center the image in the view
         float dx = (getWidth() - workingBitmap.getWidth() * scale) / 2f;
         float dy = (getHeight() - workingBitmap.getHeight() * scale) / 2f;
         imageMatrix.postTranslate(dx, dy);
