@@ -18,7 +18,6 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.Spinner;
@@ -40,6 +39,7 @@ import java.util.ArrayList;
 
 public class EditorActivity extends AppCompatActivity {
     private EditorView editorView;
+    private ToolbarView toolbarView;
     private LinearLayout settingsPanel;
     private LinearLayout brushSettings;
     private LinearLayout shapeSettings;
@@ -54,7 +54,7 @@ public class EditorActivity extends AppCompatActivity {
     private CheckBox checkBoxItalic;
     private Spinner spinnerFont;
 
-    private int currentColor = 0xFF000000; // Черный цвет по умолчанию
+    private int currentColor = 0xFF000000; // Black color by default
     private int currentBrushSize = 5;
     private int currentTextSize = 40;
     private String currentFont = "sans-serif";
@@ -73,14 +73,15 @@ public class EditorActivity extends AppCompatActivity {
         setContentView(R.layout.activity_editor);
 
         editorView = findViewById(R.id.editorView);
+        toolbarView = findViewById(R.id.toolbarView);
 
-        // Инициализация панелей настроек
+        // Initialize settings panels
         settingsPanel = findViewById(R.id.settingsPanel);
         brushSettings = findViewById(R.id.brushSettings);
         shapeSettings = findViewById(R.id.shapeSettings);
         textSettings = findViewById(R.id.textSettings);
 
-        // Инициализация элементов управления
+        // Initialize control elements
         seekBarBrushSize = findViewById(R.id.seekBarBrushSize);
         btnColor = findViewById(R.id.btnColor);
         btnShapeColor = findViewById(R.id.btnShapeColor);
@@ -91,11 +92,12 @@ public class EditorActivity extends AppCompatActivity {
         spinnerFont = findViewById(R.id.spinnerFont);
 
         setupButtons();
+        setupToolbarView();
         setupSeekBar();
         setupTextSettings();
         setupFontSpinner();
 
-        // Загрузка изображения
+        // Load image
         String imageUriString = getIntent().getStringExtra("imageUri");
         if (imageUriString != null) {
             Uri imageUri = Uri.parse(imageUriString);
@@ -109,88 +111,54 @@ public class EditorActivity extends AppCompatActivity {
         }
     }
 
+    private void setupToolbarView() {
+        toolbarView.setOnToolSelectedListener(new ToolbarView.OnToolSelectedListener() {
+            @Override
+            public void onToolSelected(ToolbarView.Tool tool) {
+                switch (tool) {
+                    case UNDO:
+                        editorView.undo();
+                        hideAllPanels();
+                        break;
+                    case REDO:
+                        editorView.redo();
+                        hideAllPanels();
+                        break;
+                    case CROP:
+                        editorView.startCropMode();
+                        hideAllPanels();
+                        break;
+                    case ROTATE:
+                        editorView.rotateImage(90);
+                        hideAllPanels();
+                        break;
+                    case FLIP:
+                        editorView.flipImage();
+                        hideAllPanels();
+                        break;
+                    case DRAW:
+                        currentMode = EditorMode.LINE;
+                        editorView.setDrawingMode(EditorView.DrawingMode.LINE);
+                        showBrushSettings();
+                        break;
+                    case SHAPE:
+                        showShapeSettings();
+                        break;
+                    case TEXT:
+                        currentMode = EditorMode.TEXT;
+                        editorView.setDrawingMode(EditorView.DrawingMode.TEXT);
+                        showTextSettings();
+                        break;
+                    case SAVE:
+                        saveImage();
+                        break;
+                }
+            }
+        });
+    }
+
     private void setupButtons() {
-        ImageButton btnUndo = findViewById(R.id.btnUndo);
-        ImageButton btnRedo = findViewById(R.id.btnRedo);
-        ImageButton btnCrop = findViewById(R.id.btnCrop);
-        ImageButton btnRotate = findViewById(R.id.btnRotate);
-        ImageButton btnFlip = findViewById(R.id.btnFlip);
-        ImageButton btnDraw = findViewById(R.id.btnDraw);
-        ImageButton btnShape = findViewById(R.id.btnShape);
-        ImageButton btnText = findViewById(R.id.btnText);
-        ImageButton btnSave = findViewById(R.id.btnSave);
-
-        btnUndo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                editorView.undo();
-            }
-        });
-
-        btnRedo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                editorView.redo();
-            }
-        });
-
-        btnCrop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                editorView.startCropMode();
-                hideAllPanels();
-            }
-        });
-
-        btnRotate.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                editorView.rotateImage(90);
-                hideAllPanels();
-            }
-        });
-
-        btnFlip.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                editorView.flipImage();
-                hideAllPanels();
-            }
-        });
-
-        btnDraw.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                currentMode = EditorMode.LINE;
-                editorView.setDrawingMode(EditorView.DrawingMode.LINE);
-                showBrushSettings();
-            }
-        });
-
-        btnShape.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showShapeSettings();
-            }
-        });
-
-        btnText.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                currentMode = EditorMode.TEXT;
-                editorView.setDrawingMode(EditorView.DrawingMode.TEXT);
-                showTextSettings();
-            }
-        });
-
-        btnSave.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                saveImage();
-            }
-        });
-
-        // Настройка кнопок форм
+        // Setup shape buttons
         Button btnRectangle = findViewById(R.id.btnRectangle);
         Button btnCircle = findViewById(R.id.btnCircle);
 
@@ -210,7 +178,7 @@ public class EditorActivity extends AppCompatActivity {
             }
         });
 
-        // Настройка кнопок выбора цвета
+        // Setup color picker buttons
         btnColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -224,6 +192,7 @@ public class EditorActivity extends AppCompatActivity {
                 showColorPicker(false);
             }
         });
+
         btnTextColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -236,7 +205,7 @@ public class EditorActivity extends AppCompatActivity {
         seekBarBrushSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                currentBrushSize = progress + 1; // Минимальный размер 1
+                currentBrushSize = progress + 1; // Minimum size 1
                 editorView.setBrushSize(currentBrushSize);
             }
 
@@ -323,14 +292,14 @@ public class EditorActivity extends AppCompatActivity {
 
     private void showColorPicker(final boolean isTextColor) {
         final int[] colors = {
-                0xFF000000, // Черный
-                0xFFFFFFFF, // Белый
-                0xFFFF0000, // Красный
-                0xFF00FF00, // Зеленый
-                0xFF0000FF, // Синий
-                0xFFFFFF00, // Желтый
-                0xFF00FFFF, // Голубой
-                0xFFFF00FF  // Пурпурный
+                0xFF000000, // Black
+                0xFFFFFFFF, // White
+                0xFFFF0000, // Red
+                0xFF00FF00, // Green
+                0xFF0000FF, // Blue
+                0xFFFFFF00, // Yellow
+                0xFF00FFFF, // Cyan
+                0xFFFF00FF  // Magenta
         };
 
         final String[] colorNames = {
