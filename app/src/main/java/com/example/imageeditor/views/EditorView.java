@@ -14,6 +14,7 @@ import android.view.View;
 
 import com.example.imageeditor.models.DrawingCircle;
 import com.example.imageeditor.models.DrawingLine;
+import com.example.imageeditor.models.DrawingObject;
 import com.example.imageeditor.models.DrawingRectangle;
 import com.example.imageeditor.models.DrawingText;
 
@@ -37,31 +38,25 @@ public class EditorView extends View {
     private Matrix imageMatrix;
 
     // Drawing parameters
-    private Paint paint;
     private int brushColor = 0xFF000000; // Black by default
-    private float brushSize = 5f;
+    private int brushSize = 5;
 
-    // For drawing lines
-    private Path currentPath;
-    private float lastX, lastY;
-
-    // For drawing shapes
-    private float startX, startY;
+    // For drawing objects
+    private DrawingObject currentDrawingObject;
 
     // For text drawing
     private String drawingText = "";
     private String fontFamily = "sans-serif";
     private int textStyle = Typeface.NORMAL;
-    private float textSize = 40f;
-    private int textColor = 0xFF000000;
+    private int textSize = 40;
 
     // Crop rectangle
     private RectF cropRect;
 
     // Lists of drawing objects and operations
-    private List<Object> drawingObjects = new ArrayList<>();
-    private Stack<Object> undoStack = new Stack<>();
-    private Stack<Object> redoStack = new Stack<>();
+    private List<DrawingObject> drawingObjects = new ArrayList<>();
+    private Stack<DrawingObject> undoStack = new Stack<>();
+    private Stack<DrawingObject> redoStack = new Stack<>();
 
     // Constructors
     public EditorView(Context context) {
@@ -80,16 +75,6 @@ public class EditorView extends View {
     }
 
     private void init() {
-        // Initialize paint
-        paint = new Paint();
-        paint.setAntiAlias(true);
-        paint.setDither(true);
-        paint.setColor(brushColor);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeJoin(Paint.Join.ROUND);
-        paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setStrokeWidth(brushSize);
-
         // Initialize matrix
         imageMatrix = new Matrix();
     }
@@ -107,39 +92,13 @@ public class EditorView extends View {
         }
 
         // Draw all existing objects
-        for (Object obj : drawingObjects) {
-            if (obj instanceof DrawingLine) {
-                DrawingLine line = (DrawingLine) obj;
-                Paint linePaint = new Paint(paint);
-                linePaint.setColor(line.getColor());
-                linePaint.setStrokeWidth(line.getStrokeWidth());
-                canvas.drawPath(line.getPath(), linePaint);
-            } else if (obj instanceof DrawingRectangle) {
-                DrawingRectangle rect = (DrawingRectangle) obj;
-                Paint rectPaint = new Paint(paint);
-                rectPaint.setColor(rect.getColor());
-                rectPaint.setStrokeWidth(rect.getStrokeWidth());
-                canvas.drawRect(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom(), rectPaint);
-            } else if (obj instanceof DrawingCircle) {
-                DrawingCircle circle = (DrawingCircle) obj;
-                Paint circlePaint = new Paint(paint);
-                circlePaint.setColor(circle.getColor());
-                circlePaint.setStrokeWidth(circle.getStrokeWidth());
-                canvas.drawCircle(circle.getCenterX(), circle.getCenterY(), circle.getRadius(), circlePaint);
-            } else if (obj instanceof DrawingText) {
-                DrawingText text = (DrawingText) obj;
-                Paint textPaint = new Paint();
-                textPaint.setAntiAlias(true);
-                textPaint.setColor(text.getColor());
-                textPaint.setTextSize(text.getTextSize());
-                textPaint.setTypeface(Typeface.create(text.getFontFamily(), text.getStyle()));
-                canvas.drawText(text.getText(), text.getX(), text.getY(), textPaint);
-            }
+        for (DrawingObject obj : drawingObjects) {
+            obj.draw(canvas);
         }
 
-        // Draw current path if drawing
-        if (currentDrawingMode == DrawingMode.LINE && currentPath != null) {
-            canvas.drawPath(currentPath, paint);
+        // Draw current object if it exists
+        if (currentDrawingObject != null) {
+            currentDrawingObject.draw(canvas);
         }
 
         // Draw crop rectangle if in crop mode
@@ -196,21 +155,18 @@ public class EditorView extends View {
     }
 
     private void handleDrawStart(float x, float y) {
-        lastX = x;
-        lastY = y;
-
         switch (currentDrawingMode) {
             case LINE:
-                currentPath = new Path();
-                currentPath.moveTo(x, y);
+                currentDrawingObject = new DrawingLine(x, y, brushColor, brushSize);
                 break;
             case RECTANGLE:
+                currentDrawingObject = new DrawingRectangle(x, y, brushColor, brushSize);
+                break;
             case CIRCLE:
-                startX = x;
-                startY = y;
+                currentDrawingObject = new DrawingCircle(x, y, brushColor, brushSize);
                 break;
             case TEXT:
-                // For text, we just store the position. Actual text addition is handled elsewhere
+                // For text, we just add it immediately
                 if (!drawingText.isEmpty()) {
                     addTextAtPosition(x, y);
                 }
@@ -219,51 +175,21 @@ public class EditorView extends View {
     }
 
     private void handleDrawMove(float x, float y) {
-        switch (currentDrawingMode) {
-            case LINE:
-                if (currentPath != null) {
-                    currentPath.quadTo(
-                            lastX, lastY,
-                            (x + lastX) / 2, (y + lastY) / 2);
-                    lastX = x;
-                    lastY = y;
-                }
-                break;
+        if (currentDrawingObject != null) {
+            if (currentDrawingObject instanceof DrawingLine) {
+                ((DrawingLine) currentDrawingObject).addPoint(x, y);
+            } else {
+                currentDrawingObject.updateEndPoint(x, y);
+            }
         }
     }
 
     private void handleDrawEnd() {
-        switch (currentDrawingMode) {
-            case LINE:
-                if (currentPath != null) {
-                    DrawingLine line = new DrawingLine(new Path(currentPath), brushColor, brushSize);
-                    drawingObjects.add(line);
-                    undoStack.push(line);
-                    redoStack.clear();
-                    currentPath = null;
-                }
-                break;
-            case RECTANGLE:
-                float left = Math.min(startX, lastX);
-                float top = Math.min(startY, lastY);
-                float right = Math.max(startX, lastX);
-                float bottom = Math.max(startY, lastY);
-
-                DrawingRectangle rect = new DrawingRectangle(left, top, right, bottom, brushColor, brushSize);
-                drawingObjects.add(rect);
-                undoStack.push(rect);
-                redoStack.clear();
-                break;
-            case CIRCLE:
-                float centerX = (startX + lastX) / 2;
-                float centerY = (startY + lastY) / 2;
-                float radius = (float) Math.sqrt(Math.pow(centerX - startX, 2) + Math.pow(centerY - startY, 2));
-
-                DrawingCircle circle = new DrawingCircle(centerX, centerY, radius, brushColor, brushSize);
-                drawingObjects.add(circle);
-                undoStack.push(circle);
-                redoStack.clear();
-                break;
+        if (currentDrawingObject != null) {
+            drawingObjects.add(currentDrawingObject);
+            undoStack.push(currentDrawingObject);
+            redoStack.clear();
+            currentDrawingObject = null;
         }
     }
 
@@ -300,7 +226,7 @@ public class EditorView extends View {
     }
 
     private void addTextAtPosition(float x, float y) {
-        DrawingText text = new DrawingText(drawingText, x, y, textColor, fontFamily, textStyle, textSize);
+        DrawingText text = new DrawingText(x, y, drawingText, fontFamily, textStyle, textSize, brushColor);
         drawingObjects.add(text);
         undoStack.push(text);
         redoStack.clear();
@@ -387,12 +313,10 @@ public class EditorView extends View {
 
     public void setBrushSize(int size) {
         this.brushSize = size;
-        paint.setStrokeWidth(size);
     }
 
     public void setBrushColor(int color) {
         this.brushColor = color;
-        paint.setColor(color);
     }
 
     public void setTextDrawingProperties(String text, String fontFamily, int style, int textSize, int color) {
@@ -400,30 +324,23 @@ public class EditorView extends View {
         this.fontFamily = fontFamily;
         this.textStyle = style;
         this.textSize = textSize;
-        this.textColor = color;
+        this.brushColor = color;
     }
 
     public void undo() {
         if (!undoStack.isEmpty()) {
-            Object lastDrawn = undoStack.pop();
+            DrawingObject lastDrawn = undoStack.pop();
             redoStack.push(lastDrawn);
-
-            // Rebuild drawing objects list
-            drawingObjects.clear();
-            for (Object obj : undoStack) {
-                drawingObjects.add(obj);
-            }
-
+            drawingObjects.remove(lastDrawn);
             invalidate();
         }
     }
 
     public void redo() {
         if (!redoStack.isEmpty()) {
-            Object redoObj = redoStack.pop();
+            DrawingObject redoObj = redoStack.pop();
             undoStack.push(redoObj);
             drawingObjects.add(redoObj);
-
             invalidate();
         }
     }
@@ -446,63 +363,17 @@ public class EditorView extends View {
         Matrix inverseMatrix = new Matrix();
         imageMatrix.invert(inverseMatrix);
 
+        // Save canvas state to reset transformations later
+        canvas.save();
+        canvas.setMatrix(inverseMatrix);
+
         // Draw all objects onto the result bitmap
-        for (Object obj : drawingObjects) {
-            if (obj instanceof DrawingLine) {
-                DrawingLine line = (DrawingLine) obj;
-                Paint linePaint = new Paint(paint);
-                linePaint.setColor(line.getColor());
-                linePaint.setStrokeWidth(line.getStrokeWidth());
-
-                // Transform the path
-                Path transformedPath = new Path(line.getPath());
-                transformedPath.transform(inverseMatrix);
-
-                canvas.drawPath(transformedPath, linePaint);
-            } else if (obj instanceof DrawingRectangle) {
-                DrawingRectangle rect = (DrawingRectangle) obj;
-                Paint rectPaint = new Paint(paint);
-                rectPaint.setColor(rect.getColor());
-                rectPaint.setStrokeWidth(rect.getStrokeWidth());
-
-                // Transform the rectangle
-                RectF transformedRect = new RectF(rect.getLeft(), rect.getTop(), rect.getRight(), rect.getBottom());
-                inverseMatrix.mapRect(transformedRect);
-
-                canvas.drawRect(transformedRect, rectPaint);
-            } else if (obj instanceof DrawingCircle) {
-                DrawingCircle circle = (DrawingCircle) obj;
-                Paint circlePaint = new Paint(paint);
-                circlePaint.setColor(circle.getColor());
-                circlePaint.setStrokeWidth(circle.getStrokeWidth());
-
-                // Transform the circle
-                float[] center = new float[] {circle.getCenterX(), circle.getCenterY()};
-                inverseMatrix.mapPoints(center);
-
-                // Scale the radius - this is an approximation
-                float[] values = new float[9];
-                inverseMatrix.getValues(values);
-                float scaleX = values[Matrix.MSCALE_X];
-                float scaleY = values[Matrix.MSCALE_Y];
-                float scaledRadius = circle.getRadius() / Math.max(Math.abs(scaleX), Math.abs(scaleY));
-
-                canvas.drawCircle(center[0], center[1], scaledRadius, circlePaint);
-            } else if (obj instanceof DrawingText) {
-                DrawingText text = (DrawingText) obj;
-                Paint textPaint = new Paint();
-                textPaint.setAntiAlias(true);
-                textPaint.setColor(text.getColor());
-                textPaint.setTextSize(text.getTextSize());
-                textPaint.setTypeface(Typeface.create(text.getFontFamily(), text.getStyle()));
-
-                // Transform the position
-                float[] position = new float[] {text.getX(), text.getY()};
-                inverseMatrix.mapPoints(position);
-
-                canvas.drawText(text.getText(), position[0], position[1], textPaint);
-            }
+        for (DrawingObject obj : drawingObjects) {
+            obj.draw(canvas);
         }
+
+        // Restore canvas state
+        canvas.restore();
 
         return resultBitmap;
     }
