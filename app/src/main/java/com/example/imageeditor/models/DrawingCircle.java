@@ -1,7 +1,9 @@
 package com.example.imageeditor.models;
 
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.PointF;
 
 public class DrawingCircle extends DrawingObject {
 
@@ -12,13 +14,20 @@ public class DrawingCircle extends DrawingObject {
 
     @Override
     public void draw(Canvas canvas) {
-        canvas.save();
-        canvas.clipRect(0, 0, canvas.getWidth(), canvas.getHeight());
         float cx = (startX + endX) / 2;
         float cy = (startY + endY) / 2;
         float radius = (float) Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) / 2;
         canvas.drawCircle(cx, cy, radius, paint);
-        canvas.restore();
+    }
+
+    @Override
+    public void transform(Matrix matrix) {
+        float[] points = {startX, startY, endX, endY};
+        matrix.mapPoints(points);
+        startX = points[0];
+        startY = points[1];
+        endX = points[2];
+        endY = points[3];
     }
 
     @Override

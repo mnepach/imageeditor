@@ -1,6 +1,7 @@
 package com.example.imageeditor.models;
 
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -25,10 +26,17 @@ public class DrawingText extends DrawingObject {
 
     @Override
     public void draw(Canvas canvas) {
-        canvas.save();
-        canvas.clipRect(0, 0, canvas.getWidth(), canvas.getHeight());
         canvas.drawText(text, startX, startY, paint);
-        canvas.restore();
+    }
+
+    @Override
+    public void transform(Matrix matrix) {
+        float[] points = {startX, startY};
+        matrix.mapPoints(points);
+        startX = points[0];
+        startY = points[1];
+        endX = startX;
+        endY = startY;
     }
 
     @Override

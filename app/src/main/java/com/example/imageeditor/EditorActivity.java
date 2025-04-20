@@ -124,14 +124,15 @@ public class EditorActivity extends AppCompatActivity {
     private void setupToolbarView() {
         toolbarView.setOnToolSelectedListener(tool -> {
             Log.d(TAG, "Выбран инструмент: " + tool);
+            hideAllPanels();
+            btnConfirmCrop.setVisibility(View.GONE);
+
             switch (tool) {
                 case UNDO:
                     editorView.undo();
-                    hideAllPanels();
                     break;
                 case REDO:
                     editorView.redo();
-                    hideAllPanels();
                     break;
                 case CROP:
                     if (editorView.isCropModeActive()) {
@@ -140,15 +141,12 @@ public class EditorActivity extends AppCompatActivity {
                         editorView.startCropMode();
                         btnConfirmCrop.setVisibility(View.VISIBLE);
                     }
-                    hideAllPanels();
                     break;
                 case ROTATE:
                     editorView.rotateImage(90);
-                    hideAllPanels();
                     break;
                 case FLIP:
                     editorView.flipImage();
-                    hideAllPanels();
                     break;
                 case DRAW:
                     currentMode = EditorMode.LINE;
@@ -209,24 +207,26 @@ public class EditorActivity extends AppCompatActivity {
     }
 
     private void updateColorIndicators() {
-        GradientDrawable colorCircle = new GradientDrawable();
-        colorCircle.setShape(GradientDrawable.OVAL);
-        colorCircle.setColor(currentColor);
-        colorCircle.setStroke(2, Color.BLACK);
-
-        if (colorIndicatorBrush != null) {
-            colorIndicatorBrush.setBackground(colorCircle);
-        }
-        if (colorIndicatorShape != null) {
-            colorIndicatorShape.setBackground(colorCircle);
-        }
-        if (colorIndicatorText != null) {
-            colorIndicatorText.setBackground(colorCircle);
-        }
+        updateColorIndicator(colorIndicatorBrush);
+        updateColorIndicator(colorIndicatorShape);
+        updateColorIndicator(colorIndicatorText);
         Log.d(TAG, "Обновлены индикаторы цвета: #" + Integer.toHexString(currentColor));
     }
 
+    private void updateColorIndicator(View indicator) {
+        if (indicator != null) {
+            GradientDrawable colorCircle = new GradientDrawable();
+            colorCircle.setShape(GradientDrawable.OVAL);
+            colorCircle.setColor(currentColor);
+            colorCircle.setStroke(2, Color.BLACK);
+            indicator.setBackground(colorCircle);
+        }
+    }
+
     private void setupSeekBar() {
+        // Устанавливаем начальное значение
+        seekBarBrushSize.setProgress(currentBrushSize - 1);
+
         seekBarBrushSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -356,9 +356,15 @@ public class EditorActivity extends AppCompatActivity {
                 .setPositiveButton("ОК", (d, which) -> {
                     currentColor = selectedColor[0];
                     switch (colorTargetType) {
-                        case 0: editorView.setBrushColor(currentColor); break;
-                        case 1: editorView.setBrushColor(currentColor); break;
-                        case 2: editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor); break;
+                        case 0: // Кисть
+                            editorView.setBrushColor(currentColor);
+                            break;
+                        case 1: // Фигура
+                            editorView.setBrushColor(currentColor);
+                            break;
+                        case 2: // Текст
+                            editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
+                            break;
                     }
                     updateColorIndicators();
                     Log.d(TAG, "Цвет подтвержден: #" + Integer.toHexString(currentColor));
@@ -384,54 +390,3 @@ public class EditorActivity extends AppCompatActivity {
         shapeSettings.setVisibility(View.GONE);
         textSettings.setVisibility(View.GONE);
     }
-
-    private void showShapeSettings() {
-        settingsPanel.setVisibility(View.VISIBLE);
-        brushSettings.setVisibility(View.GONE);
-        shapeSettings.setVisibility(View.VISIBLE);
-        textSettings.setVisibility(View.GONE);
-    }
-
-    private void showTextSettings() {
-        settingsPanel.setVisibility(View.VISIBLE);
-        brushSettings.setVisibility(View.GONE);
-        shapeSettings.setVisibility(View.GONE);
-        textSettings.setVisibility(View.VISIBLE);
-    }
-
-    private void saveImage() {
-        Bitmap finalBitmap = editorView.getFinalBitmap();
-        if (finalBitmap != null) {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, "edited_image_" + System.currentTimeMillis() + ".jpg");
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-
-            Uri imageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            if (imageUri != null) {
-                try {
-                    OutputStream outputStream = getContentResolver().openOutputStream(imageUri);
-                    if (outputStream != null) {
-                        finalBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream);
-                        outputStream.close();
-                        Toast.makeText(this, "Изображение успешно сохранено", Toast.LENGTH_SHORT).show();
-                        Log.d(TAG, "Изображение сохранено: " + imageUri);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Ошибка сохранения изображения", e);
-                    Toast.makeText(this, "Ошибка сохранения изображения", Toast.LENGTH_SHORT).show();
-                }
-            }
-        } else {
-            Log.w(TAG, "Не удалось получить финальное изображение");
-            Toast.makeText(this, "Ошибка при сохранении", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (toolbarView != null) {
-            toolbarView.refreshState();
-        }
-    }
-}

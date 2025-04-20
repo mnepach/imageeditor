@@ -2,6 +2,7 @@ package com.example.imageeditor.models;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Matrix;
 
 public abstract class DrawingObject {
     protected float startX;
@@ -51,6 +52,9 @@ public abstract class DrawingObject {
     }
 
     public abstract void draw(Canvas canvas);
+
+    // Метод для трансформации объекта при изменении изображения
+    public abstract void transform(Matrix matrix);
 
     public boolean containsPoint(float x, float y) {
         // Базовая проверка, переопределяется в наследниках

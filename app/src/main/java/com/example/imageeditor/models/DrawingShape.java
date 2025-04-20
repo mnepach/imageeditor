@@ -1,6 +1,7 @@
 package com.example.imageeditor.models;
 
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 
 public abstract class DrawingShape extends DrawingObject {
 
