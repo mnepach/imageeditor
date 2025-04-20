@@ -42,6 +42,7 @@ public class EditorActivity extends AppCompatActivity {
     private LinearLayout textSettings;
 
     private SeekBar seekBarBrushSize;
+    private SeekBar seekBarTextSize;
     private Button btnColor;
     private Button btnShapeColor;
     private Button btnTextColor;
@@ -53,8 +54,9 @@ public class EditorActivity extends AppCompatActivity {
     private CheckBox checkBoxItalic;
     private Spinner spinnerFont;
     private Button btnConfirmCrop;
+    private Button btnCancelCrop;
 
-    private int currentColor = 0xFF000000; // Черный по умолчанию
+    private int currentColor = Color.BLACK;
     private int currentBrushSize = 5;
     private int currentTextSize = 40;
     private String currentFont = "sans-serif";
@@ -80,6 +82,7 @@ public class EditorActivity extends AppCompatActivity {
         shapeSettings = findViewById(R.id.shapeSettings);
         textSettings = findViewById(R.id.textSettings);
         seekBarBrushSize = findViewById(R.id.seekBarBrushSize);
+        seekBarTextSize = findViewById(R.id.seekBarTextSize);
         btnColor = findViewById(R.id.btnColor);
         btnShapeColor = findViewById(R.id.btnShapeColor);
         btnTextColor = findViewById(R.id.btnTextColor);
@@ -91,11 +94,12 @@ public class EditorActivity extends AppCompatActivity {
         checkBoxItalic = findViewById(R.id.checkBoxItalic);
         spinnerFont = findViewById(R.id.spinnerFont);
         btnConfirmCrop = findViewById(R.id.btnConfirmCrop);
+        btnCancelCrop = findViewById(R.id.btnCancelCrop);
 
         // Настройка UI
         setupButtons();
         setupToolbarView();
-        setupSeekBar();
+        setupSeekBars();
         setupTextSettings();
         setupFontSpinner();
         updateColorIndicators();
@@ -119,11 +123,18 @@ public class EditorActivity extends AppCompatActivity {
             Toast.makeText(this, "Изображение не выбрано", Toast.LENGTH_SHORT).show();
             finish();
         }
+
+        // Скрываем все панели настроек при запуске
+        hideAllPanels();
     }
 
     private void setupToolbarView() {
         toolbarView.setOnToolSelectedListener(tool -> {
             Log.d(TAG, "Выбран инструмент: " + tool);
+
+            // Сначала сбрасываем текущее состояние
+            resetCurrentMode();
+
             switch (tool) {
                 case UNDO:
                     editorView.undo();
@@ -135,10 +146,13 @@ public class EditorActivity extends AppCompatActivity {
                     break;
                 case CROP:
                     if (editorView.isCropModeActive()) {
+                        // Если режим обрезки уже активен, ничего не делаем
                         btnConfirmCrop.setVisibility(View.VISIBLE);
+                        btnCancelCrop.setVisibility(View.VISIBLE);
                     } else {
                         editorView.startCropMode();
                         btnConfirmCrop.setVisibility(View.VISIBLE);
+                        btnCancelCrop.setVisibility(View.VISIBLE);
                     }
                     hideAllPanels();
                     break;
@@ -157,6 +171,7 @@ public class EditorActivity extends AppCompatActivity {
                     break;
                 case SHAPE:
                     showShapeSettings();
+                    // Режим рисования будет выбран при нажатии на кнопку формы
                     break;
                 case TEXT:
                     currentMode = EditorMode.TEXT;
@@ -170,6 +185,12 @@ public class EditorActivity extends AppCompatActivity {
         });
     }
 
+    private void resetCurrentMode() {
+        currentMode = EditorMode.NONE;
+        btnConfirmCrop.setVisibility(View.GONE);
+        btnCancelCrop.setVisibility(View.GONE);
+    }
+
     private void setupButtons() {
         Button btnRectangle = findViewById(R.id.btnRectangle);
         Button btnCircle = findViewById(R.id.btnCircle);
@@ -178,18 +199,36 @@ public class EditorActivity extends AppCompatActivity {
             Log.d(TAG, "Подтверждение обрезки");
             editorView.applyCrop();
             btnConfirmCrop.setVisibility(View.GONE);
+            btnCancelCrop.setVisibility(View.GONE);
+        });
+
+        btnCancelCrop.setOnClickListener(v -> {
+            Log.d(TAG, "Отмена обрезки");
+            editorView.cancelCrop();
+            btnConfirmCrop.setVisibility(View.GONE);
+            btnCancelCrop.setVisibility(View.GONE);
         });
 
         btnRectangle.setOnClickListener(v -> {
             Log.d(TAG, "Выбран прямоугольник");
             currentMode = EditorMode.RECTANGLE;
             editorView.setDrawingMode(EditorView.DrawingMode.RECTANGLE);
+            // Обновляем состояние кнопок
+            btnRectangle.setSelected(true);
+            btnCircle.setSelected(false);
+            // Передаем текущий цвет для прямоугольника
+            editorView.setBrushColor(currentColor);
         });
 
         btnCircle.setOnClickListener(v -> {
             Log.d(TAG, "Выбран круг");
             currentMode = EditorMode.CIRCLE;
             editorView.setDrawingMode(EditorView.DrawingMode.CIRCLE);
+            // Обновляем состояние кнопок
+            btnRectangle.setSelected(false);
+            btnCircle.setSelected(true);
+            // Передаем текущий цвет для круга
+            editorView.setBrushColor(currentColor);
         });
 
         btnColor.setOnClickListener(v -> {
@@ -209,24 +248,26 @@ public class EditorActivity extends AppCompatActivity {
     }
 
     private void updateColorIndicators() {
-        GradientDrawable colorCircle = new GradientDrawable();
-        colorCircle.setShape(GradientDrawable.OVAL);
-        colorCircle.setColor(currentColor);
-        colorCircle.setStroke(2, Color.BLACK);
-
-        if (colorIndicatorBrush != null) {
-            colorIndicatorBrush.setBackground(colorCircle);
-        }
-        if (colorIndicatorShape != null) {
-            colorIndicatorShape.setBackground(colorCircle);
-        }
-        if (colorIndicatorText != null) {
-            colorIndicatorText.setBackground(colorCircle);
-        }
+        updateColorIndicator(colorIndicatorBrush, currentColor);
+        updateColorIndicator(colorIndicatorShape, currentColor);
+        updateColorIndicator(colorIndicatorText, currentColor);
         Log.d(TAG, "Обновлены индикаторы цвета: #" + Integer.toHexString(currentColor));
     }
 
-    private void setupSeekBar() {
+    private void updateColorIndicator(View indicator, int color) {
+        if (indicator != null) {
+            GradientDrawable colorCircle = new GradientDrawable();
+            colorCircle.setShape(GradientDrawable.OVAL);
+            colorCircle.setColor(color);
+            colorCircle.setStroke(2, Color.BLACK);
+            indicator.setBackground(colorCircle);
+        }
+    }
+
+    private void setupSeekBars() {
+        // Настройка ползунка размера кисти
+        seekBarBrushSize.setMax(50); // Максимальный размер кисти
+        seekBarBrushSize.setProgress(currentBrushSize - 1);
         seekBarBrushSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -240,6 +281,25 @@ public class EditorActivity extends AppCompatActivity {
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
+
+        // Настройка ползунка размера текста
+        if (seekBarTextSize != null) {
+            seekBarTextSize.setMax(80); // Максимальный размер текста
+            seekBarTextSize.setProgress(currentTextSize - 10);
+            seekBarTextSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    currentTextSize = progress + 10; // Минимальный размер текста = 10
+                    updateTextDrawingProperties();
+                    Log.d(TAG, "Размер текста изменен: " + currentTextSize);
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
     }
 
     private void setupTextSettings() {
@@ -249,7 +309,7 @@ public class EditorActivity extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 currentText = s.toString();
-                editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
+                updateTextDrawingProperties();
                 Log.d(TAG, "Текст изменен: " + currentText);
             }
             @Override
@@ -267,6 +327,10 @@ public class EditorActivity extends AppCompatActivity {
         });
     }
 
+    private void updateTextDrawingProperties() {
+        editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
+    }
+
     private void updateTextStyle() {
         currentTextStyle = Typeface.NORMAL;
         if (checkBoxBold.isChecked() && checkBoxItalic.isChecked()) {
@@ -276,7 +340,7 @@ public class EditorActivity extends AppCompatActivity {
         } else if (checkBoxItalic.isChecked()) {
             currentTextStyle = Typeface.ITALIC;
         }
-        editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
+        updateTextDrawingProperties();
     }
 
     private void setupFontSpinner() {
@@ -295,7 +359,7 @@ public class EditorActivity extends AppCompatActivity {
                     case 1: currentFont = "serif"; break;
                     case 2: currentFont = "monospace"; break;
                 }
-                editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
+                updateTextDrawingProperties();
                 Log.d(TAG, "Шрифт изменен: " + currentFont);
             }
             @Override
@@ -305,49 +369,77 @@ public class EditorActivity extends AppCompatActivity {
 
     private void showColorPicker(final int colorTargetType) {
         final int[] colors = {
-                0xFF000000, 0xFFFFFFFF, 0xFFFF0000, 0xFF00FF00,
-                0xFF0000FF, 0xFFFFFF00, 0xFF00FFFF, 0xFFFF00FF
+                Color.BLACK, Color.WHITE, Color.RED, Color.GREEN,
+                Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA,
+                0xFFFF6600, // Оранжевый
+                0xFF800080, // Пурпурный
+                0xFF008080, // Бирюзовый
+                0xFF808000, // Оливковый
+                0xFF800000, // Бордовый
+                0xFF008000, // Темно-зеленый
+                0xFF000080, // Темно-синий
+                0xFFFF69B4  // Розовый
         };
+
         final String[] colorNames = {
                 "Черный", "Белый", "Красный", "Зеленый",
-                "Синий", "Желтый", "Голубой", "Пурпурный"
+                "Синий", "Желтый", "Голубой", "Пурпурный",
+                "Оранжевый", "Фиолетовый", "Бирюзовый", "Оливковый",
+                "Бордовый", "Темно-зеленый", "Темно-синий", "Розовый"
         };
+
         final int[] selectedColor = {currentColor}; // Временное хранение выбранного цвета
 
         LinearLayout colorLayout = new LinearLayout(this);
         colorLayout.setOrientation(LinearLayout.VERTICAL);
         colorLayout.setPadding(20, 20, 20, 20);
 
-        for (int i = 0; i < colors.length; i++) {
-            final int colorIndex = i;
-            Button colorButton = new Button(this);
-            GradientDrawable shape = new GradientDrawable();
-            shape.setShape(GradientDrawable.RECTANGLE);
-            shape.setColor(colors[i]);
-            shape.setStroke(2, Color.BLACK);
-            shape.setCornerRadius(8);
-            colorButton.setBackground(shape);
-            colorButton.setText(colorNames[i]);
-            colorButton.setTextColor(colors[i] == 0xFF000000 || colors[i] == 0xFF0000FF ? Color.WHITE : Color.BLACK);
+        // Создаем горизонтальные ряды для цветов
+        int rowCount = 4;
+        int colorsPerRow = colors.length / rowCount;
 
-            colorButton.setOnClickListener(v -> {
-                selectedColor[0] = colors[colorIndex];
-                // Анимация нажатия
-                ScaleAnimation scaleAnimation = new ScaleAnimation(
-                        1.0f, 0.9f, 1.0f, 0.9f,
-                        ScaleAnimation.RELATIVE_TO_SELF, 0.5f,
-                        ScaleAnimation.RELATIVE_TO_SELF, 0.5f);
-                scaleAnimation.setDuration(200);
-                scaleAnimation.setFillAfter(false);
-                v.startAnimation(scaleAnimation);
-                Log.d(TAG, "Выбран цвет (временно): " + colorNames[colorIndex]);
-            });
-
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+            LinearLayout rowLayout = new LinearLayout(this);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            rowLayout.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            params.setMargins(0, 10, 0, 10);
-            colorLayout.addView(colorButton, params);
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+
+            for (int colIndex = 0; colIndex < colorsPerRow; colIndex++) {
+                int colorIndex = rowIndex * colorsPerRow + colIndex;
+
+                Button colorButton = new Button(this);
+                colorButton.setLayoutParams(new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1.0f));
+
+                GradientDrawable shape = new GradientDrawable();
+                shape.setShape(GradientDrawable.RECTANGLE);
+                shape.setColor(colors[colorIndex]);
+                shape.setStroke(2, Color.BLACK);
+                shape.setCornerRadius(8);
+                colorButton.setBackground(shape);
+                colorButton.setText("");
+
+                final int finalColorIndex = colorIndex;
+                colorButton.setOnClickListener(v -> {
+                    selectedColor[0] = colors[finalColorIndex];
+                    // Анимация нажатия
+                    ScaleAnimation scaleAnimation = new ScaleAnimation(
+                            1.0f, 0.9f, 1.0f, 0.9f,
+                            ScaleAnimation.RELATIVE_TO_SELF, 0.5f,
+                            ScaleAnimation.RELATIVE_TO_SELF, 0.5f);
+                    scaleAnimation.setDuration(200);
+                    scaleAnimation.setFillAfter(false);
+                    v.startAnimation(scaleAnimation);
+                    Log.d(TAG, "Выбран цвет (временно): " + colorNames[finalColorIndex]);
+                });
+
+                rowLayout.addView(colorButton);
+            }
+
+            colorLayout.addView(rowLayout);
         }
 
         androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
@@ -356,11 +448,19 @@ public class EditorActivity extends AppCompatActivity {
                 .setPositiveButton("ОК", (d, which) -> {
                     currentColor = selectedColor[0];
                     switch (colorTargetType) {
-                        case 0: editorView.setBrushColor(currentColor); break;
-                        case 1: editorView.setBrushColor(currentColor); break;
-                        case 2: editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor); break;
+                        case 0: // Кисть
+                            editorView.setBrushColor(currentColor);
+                            updateColorIndicator(colorIndicatorBrush, currentColor);
+                            break;
+                        case 1: // Фигуры
+                            editorView.setBrushColor(currentColor);
+                            updateColorIndicator(colorIndicatorShape, currentColor);
+                            break;
+                        case 2: // Текст
+                            updateTextDrawingProperties();
+                            updateColorIndicator(colorIndicatorText, currentColor);
+                            break;
                     }
-                    updateColorIndicators();
                     Log.d(TAG, "Цвет подтвержден: #" + Integer.toHexString(currentColor));
                     d.dismiss(); // Закрываем диалог
                 })
@@ -402,29 +502,53 @@ public class EditorActivity extends AppCompatActivity {
     private void saveImage() {
         Bitmap finalBitmap = editorView.getFinalBitmap();
         if (finalBitmap != null) {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, "edited_image_" + System.currentTimeMillis() + ".jpg");
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-
-            Uri imageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            if (imageUri != null) {
-                try {
-                    OutputStream outputStream = getContentResolver().openOutputStream(imageUri);
-                    if (outputStream != null) {
-                        finalBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream);
-                        outputStream.close();
-                        Toast.makeText(this, "Изображение успешно сохранено", Toast.LENGTH_SHORT).show();
-                        Log.d(TAG, "Изображение сохранено: " + imageUri);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Ошибка сохранения изображения", e);
-                    Toast.makeText(this, "Ошибка сохранения изображения", Toast.LENGTH_SHORT).show();
-                }
-            }
+            // Сначала спрашиваем пользователя, желает ли он сохранить изображение
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Сохранение изображения")
+                    .setMessage("Сохранить отредактированное изображение в галерею?")
+                    .setPositiveButton("Сохранить", (dialog, which) -> {
+                        saveImageToGallery(finalBitmap);
+                    })
+                    .setNegativeButton("Отмена", null)
+                    .show();
         } else {
             Log.w(TAG, "Не удалось получить финальное изображение");
             Toast.makeText(this, "Ошибка при сохранении", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void saveImageToGallery(Bitmap bitmap) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, "edited_image_" + System.currentTimeMillis() + ".jpg");
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+
+        Uri imageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        if (imageUri != null) {
+            try {
+                OutputStream outputStream = getContentResolver().openOutputStream(imageUri);
+                if (outputStream != null) {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream);
+                    outputStream.close();
+                    Toast.makeText(this, "Изображение успешно сохранено", Toast.LENGTH_SHORT).show();
+                    Log.d(TAG, "Изображение сохранено: " + imageUri);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка сохранения изображения", e);
+                Toast.makeText(this, "Ошибка сохранения изображения", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Выход из редактора")
+                .setMessage("Вы уверены, что хотите выйти? Все несохраненные изменения будут потеряны.")
+                .setPositiveButton("Выйти", (dialog, which) -> {
+                    super.onBackPressed();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
     }
 
     @Override
