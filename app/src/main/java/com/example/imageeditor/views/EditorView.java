@@ -343,7 +343,7 @@ public class EditorView extends View {
         }
     }
 
-    private void fitImageToView() {
+    public void fitImageToView() {
         if (workingBitmap == null || getWidth() == 0 || getHeight() == 0) return;
 
         imageMatrix.reset();
@@ -364,6 +364,8 @@ public class EditorView extends View {
         float dx = (getWidth() - workingBitmap.getWidth() * scale) / 2f;
         float dy = (getHeight() - workingBitmap.getHeight() * scale) / 2f;
         imageMatrix.postTranslate(dx, dy);
+
+        invalidate();
     }
 
     public void setDrawingMode(DrawingMode mode) {

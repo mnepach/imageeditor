@@ -36,6 +36,15 @@ public class ToolbarView extends LinearLayout {
         init(context);
     }
 
+    public void refreshState() {
+        invalidate();
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            child.setEnabled(true);
+            child.invalidate();
+        }
+    }
+
     private void init(Context context) {
         LayoutInflater.from(context).inflate(R.layout.view_toolbar, this, true);
 

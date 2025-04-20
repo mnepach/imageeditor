@@ -94,6 +94,9 @@ public class EditorActivity extends AppCompatActivity {
         btnColor = findViewById(R.id.btnColor);
         btnShapeColor = findViewById(R.id.btnShapeColor);
         btnTextColor = findViewById(R.id.btnTextColor);
+        txtCurrentColor = findViewById(R.id.txtCurrentColor);
+        txtCurrentShapeColor = findViewById(R.id.txtCurrentShapeColor);
+        txtCurrentTextColor = findViewById(R.id.txtCurrentTextColor);
         editTextInput = findViewById(R.id.editTextInput);
         checkBoxBold = findViewById(R.id.checkBoxBold);
         checkBoxItalic = findViewById(R.id.checkBoxItalic);
@@ -105,6 +108,7 @@ public class EditorActivity extends AppCompatActivity {
         setupSeekBar();
         setupTextSettings();
         setupFontSpinner();
+        updateColorIndicators();
 
         // Load image
         String imageUriString = getIntent().getStringExtra("imageUri");
@@ -113,6 +117,13 @@ public class EditorActivity extends AppCompatActivity {
             try {
                 Bitmap bitmap = BitmapUtils.getBitmapFromUri(this, imageUri);
                 editorView.setImageBitmap(bitmap);
+                // Fix: Force image to fit to view properly on initial load
+                editorView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        editorView.fitImageToView();
+                    }
+                });
             } catch (Exception e) {
                 Toast.makeText(this, "Error loading image", Toast.LENGTH_SHORT).show();
                 finish();
@@ -171,15 +182,17 @@ public class EditorActivity extends AppCompatActivity {
         });
     }
 
-
     private void setupButtons() {
         // Setup shape buttons
         Button btnRectangle = findViewById(R.id.btnRectangle);
         Button btnCircle = findViewById(R.id.btnCircle);
 
-        btnConfirmCrop.setOnClickListener(v -> {
-            editorView.applyCrop();
-            btnConfirmCrop.setVisibility(View.GONE);
+        btnConfirmCrop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                editorView.applyCrop();
+                btnConfirmCrop.setVisibility(View.GONE);
+            }
         });
 
         btnRectangle.setOnClickListener(new View.OnClickListener() {
@@ -190,7 +203,6 @@ public class EditorActivity extends AppCompatActivity {
             }
         });
 
-
         btnCircle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -199,27 +211,66 @@ public class EditorActivity extends AppCompatActivity {
             }
         });
 
-        // Setup color picker buttons
+        // Setup color picker buttons with indicators
         btnColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showColorPicker(false);
+                showColorPicker(0);
             }
         });
 
         btnShapeColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showColorPicker(false);
+                showColorPicker(1);
             }
         });
 
         btnTextColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showColorPicker(true);
+                showColorPicker(2);
             }
         });
+    }
+
+    private void updateColorIndicators() {
+        // Update color indicator views
+        if (txtCurrentColor != null) {
+            GradientDrawable colorCircle = new GradientDrawable();
+            colorCircle.setShape(GradientDrawable.OVAL);
+            colorCircle.setColor(currentColor);
+            txtCurrentColor.setBackground(colorCircle);
+            txtCurrentColor.setText(getColorName(currentColor));
+        }
+
+        if (txtCurrentShapeColor != null) {
+            GradientDrawable shapeColorCircle = new GradientDrawable();
+            shapeColorCircle.setShape(GradientDrawable.OVAL);
+            shapeColorCircle.setColor(currentColor);
+            txtCurrentShapeColor.setBackground(shapeColorCircle);
+            txtCurrentShapeColor.setText(getColorName(currentColor));
+        }
+
+        if (txtCurrentTextColor != null) {
+            GradientDrawable textColorCircle = new GradientDrawable();
+            textColorCircle.setShape(GradientDrawable.OVAL);
+            textColorCircle.setColor(currentColor);
+            txtCurrentTextColor.setBackground(textColorCircle);
+            txtCurrentTextColor.setText(getColorName(currentColor));
+        }
+    }
+
+    private String getColorName(int color) {
+        if (color == 0xFF000000) return "Black";
+        if (color == 0xFFFFFFFF) return "White";
+        if (color == 0xFFFF0000) return "Red";
+        if (color == 0xFF00FF00) return "Green";
+        if (color == 0xFF0000FF) return "Blue";
+        if (color == 0xFFFFFF00) return "Yellow";
+        if (color == 0xFF00FFFF) return "Cyan";
+        if (color == 0xFFFF00FF) return "Magenta";
+        return "#" + Integer.toHexString(color).substring(2).toUpperCase();
     }
 
     private void setupSeekBar() {
@@ -231,17 +282,20 @@ public class EditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
 
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
         });
     }
 
     private void setupTextSettings() {
         editTextInput.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -250,7 +304,8 @@ public class EditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void afterTextChanged(Editable s) {}
+            public void afterTextChanged(Editable s) {
+            }
         });
 
         checkBoxBold.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -307,11 +362,12 @@ public class EditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
         });
     }
 
-    private void showColorPicker(final boolean isTextColor) {
+    private void showColorPicker(final int colorTargetType) {
         final int[] colors = {
                 0xFF000000, // Black
                 0xFFFFFFFF, // White
@@ -329,18 +385,74 @@ public class EditorActivity extends AppCompatActivity {
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Choose Color");
-        builder.setItems(colorNames, new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                currentColor = colors[which];
-                if (isTextColor) {
-                    editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
-                } else {
-                    editorView.setBrushColor(currentColor);
-                }
+
+        // Create custom layout for color items
+        LinearLayout colorLayout = new LinearLayout(this);
+        colorLayout.setOrientation(LinearLayout.VERTICAL);
+        colorLayout.setPadding(20, 20, 20, 20);
+
+        for (int i = 0; i < colors.length; i++) {
+            final int colorIndex = i;
+            Button colorButton = new Button(this);
+
+            // Set button background color
+            GradientDrawable shape = new GradientDrawable();
+            shape.setShape(GradientDrawable.RECTANGLE);
+            shape.setColor(colors[i]);
+            shape.setStroke(2, Color.BLACK);
+            shape.setCornerRadius(8);
+            colorButton.setBackground(shape);
+
+            // Set button text (color name)
+            colorButton.setText(colorNames[i]);
+
+            // Ensure text is visible (use white text on dark colors, black text on light colors)
+            if (colors[i] == 0xFF000000 || colors[i] == 0xFF0000FF) {
+                colorButton.setTextColor(Color.WHITE);
+            } else {
+                colorButton.setTextColor(Color.BLACK);
             }
-        });
-        builder.show();
+
+            // Set button click listener
+            colorButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentColor = colors[colorIndex];
+
+                    // Apply color to the appropriate target
+                    switch (colorTargetType) {
+                        case 0: // Brush color
+                            editorView.setBrushColor(currentColor);
+                            break;
+                        case 1: // Shape color
+                            editorView.setBrushColor(currentColor);
+                            break;
+                        case 2: // Text color
+                            editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor);
+                            break;
+                    }
+
+                    updateColorIndicators();
+                }
+            });
+
+            // Add padding and margin
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            params.setMargins(0, 10, 0, 10);
+            colorLayout.addView(colorButton, params);
+        }
+
+        builder.setView(colorLayout);
+        final AlertDialog dialog = builder.create();
+
+        // Set dialog tag on buttons to allow dismissal
+        for (int i = 0; i < colorLayout.getChildCount(); i++) {
+            colorLayout.getChildAt(i).setTag(dialog);
+        }
+
+        dialog.show();
     }
 
     private void hideAllPanels() {
@@ -391,6 +503,15 @@ public class EditorActivity extends AppCompatActivity {
                     Toast.makeText(this, "Error saving image", Toast.LENGTH_SHORT).show();
                 }
             }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // Fix for button non-responsiveness after permission request on some devices
+        if (toolbarView != null) {
+            toolbarView.refreshState();
         }
     }
 }

@@ -149,4 +149,29 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
+    <!-- Add these near the color buttons in the layout file -->
+    <TextView
+        android:id="@+id/txtCurrentColor"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="#FFFFFF" />
+
+    <TextView
+        android:id="@+id/txtCurrentShapeColor"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="#FFFFFF" />
+
+    <TextView
+        android:id="@+id/txtCurrentTextColor"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="#FFFFFF" />
+
 </LinearLayout>
