@@ -11,70 +11,88 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_media_previous"
-        android:contentDescription="Undo" />
+        android:src="@drawable/ic_undo"
+        android:contentDescription="@string/undo"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnRedo"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_media_next"
-        android:contentDescription="Redo" />
+        android:src="@drawable/ic_redo"
+        android:contentDescription="@string/redo"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnCrop"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_crop"
-        android:contentDescription="Crop" />
+        android:src="@drawable/ic_crop"
+        android:contentDescription="@string/crop"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnRotate"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_rotate"
-        android:contentDescription="Rotate" />
+        android:src="@drawable/ic_rotate"
+        android:contentDescription="@string/rotate"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnFlip"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_revert"
-        android:contentDescription="Flip" />
+        android:src="@drawable/ic_flip"
+        android:contentDescription="@string/flip"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnDraw"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_edit"
-        android:contentDescription="Draw" />
+        android:src="@drawable/ic_draw"
+        android:contentDescription="@string/draw"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnShape"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_share"
-        android:contentDescription="Shape" />
+        android:src="@drawable/ic_shape"
+        android:contentDescription="@string/shape"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnText"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_add"
-        android:contentDescription="Text" />
+        android:src="@drawable/ic_text"
+        android:contentDescription="@string/text"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 
     <ImageButton
         android:id="@+id/btnSave"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:src="@android:drawable/ic_menu_save"
-        android:contentDescription="Save" />
+        android:src="@drawable/ic_save"
+        android:contentDescription="@string/save"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp" />
 </LinearLayout>
