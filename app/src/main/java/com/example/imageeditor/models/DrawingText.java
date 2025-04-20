@@ -12,13 +12,12 @@ public class DrawingText extends DrawingObject {
     private int textSize;
 
     public DrawingText(float x, float y, String text, String fontFamily, int textStyle, int textSize, int color) {
-        super(x, y, color, 1); // strokeWidth не используется для текста
+        super(x, y, color, 1);
         this.text = text;
         this.fontFamily = fontFamily;
         this.textStyle = textStyle;
         this.textSize = textSize;
 
-        // Настраиваем Paint для текста
         this.paint.setStyle(Paint.Style.FILL);
         this.paint.setTextSize(textSize);
         this.paint.setTypeface(Typeface.create(fontFamily, textStyle));
@@ -26,7 +25,10 @@ public class DrawingText extends DrawingObject {
 
     @Override
     public void draw(Canvas canvas) {
+        canvas.save();
+        canvas.clipRect(0, 0, canvas.getWidth(), canvas.getHeight());
         canvas.drawText(text, startX, startY, paint);
+        canvas.restore();
     }
 
     @Override
@@ -35,10 +37,8 @@ public class DrawingText extends DrawingObject {
         paint.getTextBounds(text, 0, text.length(), bounds);
         bounds.offset((int)startX, (int)startY);
 
-        // Учитываем, что baseline текста находится внизу, поэтому смещаем область вверх
         bounds.top -= paint.getTextSize();
 
-        // Добавляем padding для удобства касания
         int padding = 20;
         bounds.inset(-padding, -padding);
 

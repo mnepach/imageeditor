@@ -12,10 +12,13 @@ public class DrawingCircle extends DrawingObject {
 
     @Override
     public void draw(Canvas canvas) {
+        canvas.save();
+        canvas.clipRect(0, 0, canvas.getWidth(), canvas.getHeight());
         float cx = (startX + endX) / 2;
         float cy = (startY + endY) / 2;
         float radius = (float) Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) / 2;
         canvas.drawCircle(cx, cy, radius, paint);
+        canvas.restore();
     }
 
     @Override
@@ -24,6 +27,6 @@ public class DrawingCircle extends DrawingObject {
         float cy = (startY + endY) / 2;
         float radius = (float) Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2)) / 2;
         float distance = (float) Math.sqrt(Math.pow(x - cx, 2) + Math.pow(y - cy, 2));
-        return distance <= radius;
+        return distance <= radius + paint.getStrokeWidth();
     }
 }

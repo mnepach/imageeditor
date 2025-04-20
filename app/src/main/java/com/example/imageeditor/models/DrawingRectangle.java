@@ -12,11 +12,14 @@ public class DrawingRectangle extends DrawingObject {
 
     @Override
     public void draw(Canvas canvas) {
+        canvas.save();
+        canvas.clipRect(0, 0, canvas.getWidth(), canvas.getHeight());
         float left = Math.min(startX, endX);
         float right = Math.max(startX, endX);
         float top = Math.min(startY, endY);
         float bottom = Math.max(startY, endY);
         canvas.drawRect(left, top, right, bottom, paint);
+        canvas.restore();
     }
 
     @Override
@@ -25,6 +28,7 @@ public class DrawingRectangle extends DrawingObject {
         float right = Math.max(startX, endX);
         float top = Math.min(startY, endY);
         float bottom = Math.max(startY, endY);
-        return x >= left && x <= right && y >= top && y <= bottom;
+        float padding = paint.getStrokeWidth() + 10;
+        return x >= left - padding && x <= right + padding && y >= top - padding && y <= bottom + padding;
     }
 }
