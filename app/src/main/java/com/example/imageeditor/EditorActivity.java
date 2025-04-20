@@ -63,7 +63,7 @@ public class EditorActivity extends AppCompatActivity {
     private String currentText = "";
 
     private enum EditorMode {
-        NONE, LINE, RECTANGLE, CIRCLE, TEXT
+        NONE, LINE, RECTANGLE, CIRCLE, TEXT, CROP
     }
 
     private EditorMode currentMode = EditorMode.NONE;
@@ -93,6 +93,14 @@ public class EditorActivity extends AppCompatActivity {
         checkBoxItalic = findViewById(R.id.checkBoxItalic);
         spinnerFont = findViewById(R.id.spinnerFont);
         btnConfirmCrop = findViewById(R.id.btnConfirmCrop);
+
+        // Настройка кнопки подтверждения обрезки
+        btnConfirmCrop.setOnClickListener(v -> {
+            editorView.applyCrop();
+            hideAllPanels();
+            currentMode = EditorMode.NONE;
+            btnConfirmCrop.setVisibility(View.GONE);
+        });
 
         // Настройка UI
         setupButtons();
@@ -163,6 +171,12 @@ public class EditorActivity extends AppCompatActivity {
                     currentMode = EditorMode.TEXT;
                     editorView.setDrawingMode(EditorView.DrawingMode.TEXT);
                     showTextSettings();
+                    break;
+                case CROP:
+                    currentMode = EditorMode.CROP;
+                    editorView.startCropMode();
+                    btnConfirmCrop.setVisibility(View.VISIBLE);
+                    hideAllPanels();
                     break;
                 case SAVE:
                     saveImage();
