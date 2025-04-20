@@ -12,6 +12,7 @@
     <string name="draw">Рисовать</string>
     <string name="shape">Фигура</string>
     <string name="text">Текст</string>
+    <string name="text_size">Размер текста</string>
     <string name="color">Цвет</string>
     <string name="brush_size">Размер кисти</string>
     <string name="rectangle">Прямоугольник</string>

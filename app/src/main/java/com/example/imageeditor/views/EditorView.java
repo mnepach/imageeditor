@@ -24,9 +24,11 @@ import com.example.imageeditor.models.DrawingText;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class EditorView extends View {
     private static final String TAG = "EditorView";
 
+    private Canvas bitmapCanvas;
     private Bitmap originalBitmap;
     private Bitmap workingBitmap;
     private Matrix imageMatrix = new Matrix();

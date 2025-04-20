@@ -11,13 +11,29 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <Button
-        android:id="@+id/btnConfirmCrop"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Подтвердить обрезку"
-        android:visibility="gone"
-        android:layout_gravity="center" />
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btnConfirmCrop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Подтвердить обрезку"
+            android:visibility="gone"
+            android:layout_gravity="center" />
+
+        <Button
+            android:id="@+id/btnCancelCrop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Отменить обрезку"
+            android:visibility="gone"
+            android:layout_gravity="center"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/settingsPanel"
@@ -119,6 +135,19 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/add_text" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/text_size"
+                android:layout_marginTop="8dp" />
+
+            <SeekBar
+                android:id="@+id/seekBarTextSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="80"
+                android:progress="30" />
 
             <TextView
                 android:layout_width="wrap_content"
