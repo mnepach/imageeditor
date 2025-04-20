@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
@@ -28,8 +29,9 @@ public class EditorView extends View {
 
     private Bitmap originalBitmap;
     private Bitmap workingBitmap;
-    private Matrix imageMatrix;
-    private Canvas bitmapCanvas;
+    private Matrix imageMatrix = new Matrix();
+    private Matrix inverseMatrix = new Matrix();
+    private RectF imageBounds = new RectF();
 
     private int brushColor = 0xFF000000;
     private int brushSize = 5;
@@ -45,6 +47,8 @@ public class EditorView extends View {
 
     private RectF cropRect;
     private boolean cropMode = false;
+    private int cropHandleRadius = 30;
+    private int selectedCropHandle = -1;
 
     public enum DrawingMode {
         NONE, LINE, RECTANGLE, CIRCLE, TEXT
@@ -77,21 +81,28 @@ public class EditorView extends View {
 
         if (workingBitmap != null) {
             canvas.drawBitmap(workingBitmap, imageMatrix, null);
+            // Обновляем границы изображения
+            imageBounds.set(0, 0, workingBitmap.getWidth(), workingBitmap.getHeight());
+            imageMatrix.mapRect(imageBounds);
         }
 
-        canvas.save();
-        canvas.concat(imageMatrix);
-
+        // Рисуем все объекты с учетом текущей матрицы трансформации
         for (DrawingObject obj : drawingObjects) {
+            canvas.save();
+            canvas.concat(imageMatrix);
             obj.draw(canvas);
+            canvas.restore();
         }
 
+        // Рисуем текущий объект рисования
         if (currentDrawingObject != null) {
+            canvas.save();
+            canvas.concat(imageMatrix);
             currentDrawingObject.draw(canvas);
+            canvas.restore();
         }
 
-        canvas.restore();
-
+        // Рисуем интерфейс обрезки, если активен режим обрезки
         if (cropMode && cropRect != null) {
             Paint cropPaint = new Paint();
             cropPaint.setColor(0xFFFFFFFF);
@@ -99,12 +110,18 @@ public class EditorView extends View {
             cropPaint.setStrokeWidth(2f);
             canvas.drawRect(cropRect, cropPaint);
 
-            float handleRadius = 10f;
+            // Рисуем маркеры углов обрезки
             cropPaint.setStyle(Paint.Style.FILL);
-            canvas.drawCircle(cropRect.left, cropRect.top, handleRadius, cropPaint);
-            canvas.drawCircle(cropRect.right, cropRect.top, handleRadius, cropPaint);
-            canvas.drawCircle(cropRect.left, cropRect.bottom, handleRadius, cropPaint);
-            canvas.drawCircle(cropRect.right, cropRect.bottom, handleRadius, cropPaint);
+            canvas.drawCircle(cropRect.left, cropRect.top, cropHandleRadius, cropPaint);
+            canvas.drawCircle(cropRect.right, cropRect.top, cropHandleRadius, cropPaint);
+            canvas.drawCircle(cropRect.left, cropRect.bottom, cropHandleRadius, cropPaint);
+            canvas.drawCircle(cropRect.right, cropRect.bottom, cropHandleRadius, cropPaint);
+
+            // Добавляем маркеры для сторон
+            canvas.drawCircle(cropRect.centerX(), cropRect.top, cropHandleRadius, cropPaint);
+            canvas.drawCircle(cropRect.centerX(), cropRect.bottom, cropHandleRadius, cropPaint);
+            canvas.drawCircle(cropRect.left, cropRect.centerY(), cropHandleRadius, cropPaint);
+            canvas.drawCircle(cropRect.right, cropRect.centerY(), cropHandleRadius, cropPaint);
         }
     }
 
@@ -113,8 +130,10 @@ public class EditorView extends View {
         float x = event.getX();
         float y = event.getY();
 
-        Matrix inverseMatrix = new Matrix();
-        imageMatrix.invert(inverseMatrix);
+        // Обновляем обратную матрицу трансформации
+        updateInverseMatrix();
+
+        // Преобразуем координаты касания в координаты на изображении
         float[] points = {x, y};
         inverseMatrix.mapPoints(points);
         float bitmapX = points[0];
@@ -130,31 +149,50 @@ public class EditorView extends View {
             case MotionEvent.ACTION_DOWN:
                 Log.d(TAG, "Касание: (" + bitmapX + ", " + bitmapY + ")");
                 if (cropMode) {
-                    handleCropStart(x, y);
+                    return handleCropStart(x, y);
                 } else {
                     handleDrawStart(bitmapX, bitmapY);
+                    invalidate();
+                    return true;
                 }
-                invalidate();
-                return true;
             case MotionEvent.ACTION_MOVE:
                 if (cropMode) {
-                    handleCropMove(x, y);
+                    return handleCropMove(x, y);
                 } else {
                     handleDrawMove(bitmapX, bitmapY);
+                    invalidate();
+                    return true;
                 }
-                invalidate();
-                return true;
             case MotionEvent.ACTION_UP:
                 if (cropMode) {
-                    handleCropEnd();
+                    return handleCropEnd();
                 } else {
                     handleDrawEnd();
+                    invalidate();
+                    return true;
                 }
-                invalidate();
-                return true;
             default:
                 return super.onTouchEvent(event);
         }
+    }
+
+    // Обновление обратной матрицы трансформации
+    private void updateInverseMatrix() {
+        imageMatrix.invert(inverseMatrix);
+    }
+
+    // Проверка и обновление границ рисуемых объектов
+    private void constrainToImageBounds(DrawingObject object) {
+        if (workingBitmap == null) return;
+
+        // Ограничение координат точек объекта внутри изображения
+        float startX = Math.max(0, Math.min(object.getStartX(), workingBitmap.getWidth()));
+        float startY = Math.max(0, Math.min(object.getStartY(), workingBitmap.getHeight()));
+        float endX = Math.max(0, Math.min(object.getEndX(), workingBitmap.getWidth()));
+        float endY = Math.max(0, Math.min(object.getEndY(), workingBitmap.getHeight()));
+
+        object.updateStartPoint(startX, startY);
+        object.updateEndPoint(endX, endY);
     }
 
     public boolean isCropModeActive() {
@@ -196,6 +234,7 @@ public class EditorView extends View {
 
     private void handleDrawEnd() {
         if (currentDrawingObject != null) {
+            constrainToImageBounds(currentDrawingObject);
             drawingObjects.add(currentDrawingObject);
             historyManager.executeCommand(new DrawCommand(drawingObjects, currentDrawingObject));
             Log.d(TAG, "Объект добавлен в историю: " + currentDrawingObject.getClass().getSimpleName());
@@ -203,83 +242,171 @@ public class EditorView extends View {
         }
     }
 
-    private void handleCropStart(float x, float y) {
-        if (workingBitmap == null) return;
+    private boolean handleCropStart(float x, float y) {
+        if (workingBitmap == null) return false;
 
-        Matrix inverseMatrix = new Matrix();
-        imageMatrix.invert(inverseMatrix);
-        float[] points = {x, y};
-        inverseMatrix.mapPoints(points);
-        float bitmapX = Math.max(0, Math.min(points[0], workingBitmap.getWidth()));
-        float bitmapY = Math.max(0, Math.min(points[1], workingBitmap.getHeight()));
-
-        float[] bitmapPoints = {bitmapX, bitmapY};
-        imageMatrix.mapPoints(bitmapPoints);
-        float constrainedX = bitmapPoints[0];
-        float constrainedY = bitmapPoints[1];
-
-        cropRect = new RectF(constrainedX, constrainedY, constrainedX, constrainedY);
-        Log.d(TAG, "Начата обрезка: (" + bitmapX + ", " + bitmapY + ")");
-    }
-
-    private void handleCropMove(float x, float y) {
-        if (cropRect == null || workingBitmap == null) return;
-
-        Matrix inverseMatrix = new Matrix();
-        imageMatrix.invert(inverseMatrix);
-        float[] points = {x, y};
-        inverseMatrix.mapPoints(points);
-        float bitmapX = Math.max(0, Math.min(points[0], workingBitmap.getWidth()));
-        float bitmapY = Math.max(0, Math.min(points[1], workingBitmap.getHeight()));
-
-        float[] bitmapPoints = {bitmapX, bitmapY};
-        imageMatrix.mapPoints(bitmapPoints);
-        float constrainedX = bitmapPoints[0];
-        float constrainedY = bitmapPoints[1];
-
-        cropRect.right = constrainedX;
-        cropRect.bottom = constrainedY;
-    }
-
-    private void handleCropEnd() {
         if (cropRect != null) {
+            // Проверяем, не потянули ли мы за маркер обрезки
+            selectedCropHandle = getCropHandleUnderPoint(x, y);
+            if (selectedCropHandle >= 0) {
+                Log.d(TAG, "Выбран маркер обрезки: " + selectedCropHandle);
+                invalidate();
+                return true;
+            }
+        }
+
+        // Если не попали в маркер, создаем новую область обрезки
+        // Ограничиваем начальные координаты границами изображения
+        PointF imagePoint = mapPointToImageSpace(x, y);
+        cropRect = new RectF(imagePoint.x, imagePoint.y, imagePoint.x, imagePoint.y);
+        selectedCropHandle = 4; // Правый нижний угол по умолчанию
+        invalidate();
+        Log.d(TAG, "Начата обрезка: (" + imagePoint.x + ", " + imagePoint.y + ")");
+        return true;
+    }
+
+    private boolean handleCropMove(float x, float y) {
+        if (cropRect == null || workingBitmap == null || selectedCropHandle < 0) return false;
+
+        PointF imagePoint = mapPointToImageSpace(x, y);
+
+        // Обновляем положение выбранного маркера
+        switch (selectedCropHandle) {
+            case 0: // Левый верхний
+                cropRect.left = Math.max(imageBounds.left, Math.min(imagePoint.x, cropRect.right - 50));
+                cropRect.top = Math.max(imageBounds.top, Math.min(imagePoint.y, cropRect.bottom - 50));
+                break;
+            case 1: // Правый верхний
+                cropRect.right = Math.min(imageBounds.right, Math.max(imagePoint.x, cropRect.left + 50));
+                cropRect.top = Math.max(imageBounds.top, Math.min(imagePoint.y, cropRect.bottom - 50));
+                break;
+            case 2: // Левый нижний
+                cropRect.left = Math.max(imageBounds.left, Math.min(imagePoint.x, cropRect.right - 50));
+                cropRect.bottom = Math.min(imageBounds.bottom, Math.max(imagePoint.y, cropRect.top + 50));
+                break;
+            case 3: // Правый нижний
+                cropRect.right = Math.min(imageBounds.right, Math.max(imagePoint.x, cropRect.left + 50));
+                cropRect.bottom = Math.min(imageBounds.bottom, Math.max(imagePoint.y, cropRect.top + 50));
+                break;
+            case 4: // Верх центр
+                cropRect.top = Math.max(imageBounds.top, Math.min(imagePoint.y, cropRect.bottom - 50));
+                break;
+            case 5: // Низ центр
+                cropRect.bottom = Math.min(imageBounds.bottom, Math.max(imagePoint.y, cropRect.top + 50));
+                break;
+            case 6: // Левый центр
+                cropRect.left = Math.max(imageBounds.left, Math.min(imagePoint.x, cropRect.right - 50));
+                break;
+            case 7: // Правый центр
+                cropRect.right = Math.min(imageBounds.right, Math.max(imagePoint.x, cropRect.left + 50));
+                break;
+        }
+
+        invalidate();
+        return true;
+    }
+
+    private boolean handleCropEnd() {
+        if (cropRect != null) {
+            // Нормализуем прямоугольник (убеждаемся, что left < right и top < bottom)
             float left = Math.min(cropRect.left, cropRect.right);
             float top = Math.min(cropRect.top, cropRect.bottom);
             float right = Math.max(cropRect.left, cropRect.right);
             float bottom = Math.max(cropRect.top, cropRect.bottom);
             cropRect.set(left, top, right, bottom);
+            selectedCropHandle = -1;
+            invalidate();
             Log.d(TAG, "Обрезка завершена: " + cropRect.toString());
+            return true;
         }
+        return false;
+    }
+
+    // Определение, какой маркер обрезки находится под указанной точкой
+    private int getCropHandleUnderPoint(float x, float y) {
+        if (cropRect == null) return -1;
+
+        // Проверяем расстояние от точки до каждого маркера
+        float[] handlePoints = {
+                cropRect.left, cropRect.top,           // 0: левый верхний
+                cropRect.right, cropRect.top,          // 1: правый верхний
+                cropRect.left, cropRect.bottom,        // 2: левый нижний
+                cropRect.right, cropRect.bottom,       // 3: правый нижний
+                cropRect.centerX(), cropRect.top,      // 4: верх центр
+                cropRect.centerX(), cropRect.bottom,   // 5: низ центр
+                cropRect.left, cropRect.centerY(),     // 6: левый центр
+                cropRect.right, cropRect.centerY()     // 7: правый центр
+        };
+
+        for (int i = 0; i < 8; i++) {
+            float handleX = handlePoints[i * 2];
+            float handleY = handlePoints[i * 2 + 1];
+            float distance = (float) Math.sqrt(Math.pow(x - handleX, 2) + Math.pow(y - handleY, 2));
+            if (distance <= cropHandleRadius * 1.5) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // Преобразование координат из экранного пространства в пространство изображения
+    private PointF mapPointToImageSpace(float x, float y) {
+        // Ограничиваем точку границами изображения на экране
+        x = Math.max(imageBounds.left, Math.min(x, imageBounds.right));
+        y = Math.max(imageBounds.top, Math.min(y, imageBounds.bottom));
+
+        // Преобразуем экранные координаты в координаты изображения
+        float[] points = {x, y};
+        inverseMatrix.mapPoints(points);
+
+        // Ограничиваем координаты внутри битмапа
+        float bitmapX = Math.max(0, Math.min(points[0], workingBitmap.getWidth()));
+        float bitmapY = Math.max(0, Math.min(points[1], workingBitmap.getHeight()));
+
+        return new PointF(bitmapX, bitmapY);
     }
 
     public void applyCrop() {
         if (cropMode && cropRect != null && workingBitmap != null) {
+            // Переводим координаты cropRect из экранного пространства в пространство изображения
+            RectF cropRectInBitmap = new RectF();
             Matrix inverseMatrix = new Matrix();
             imageMatrix.invert(inverseMatrix);
-            float[] points = {cropRect.left, cropRect.top, cropRect.right, cropRect.bottom};
-            inverseMatrix.mapPoints(points);
 
-            int x = (int) Math.max(Math.min(points[0], points[2]), 0);
-            int y = (int) Math.max(Math.min(points[1], points[3]), 0);
-            int width = (int) Math.min(Math.abs(points[2] - points[0]), workingBitmap.getWidth() - x);
-            int height = (int) Math.min(Math.abs(points[3] - points[1]), workingBitmap.getHeight() - y);
+            // Создаем прямоугольник в пространстве изображения
+            cropRectInBitmap.set(cropRect);
+            inverseMatrix.mapRect(cropRectInBitmap);
+
+            // Ограничиваем координаты внутри изображения
+            int x = Math.max(0, Math.round(cropRectInBitmap.left));
+            int y = Math.max(0, Math.round(cropRectInBitmap.top));
+            int width = Math.min(workingBitmap.getWidth() - x, Math.round(cropRectInBitmap.width()));
+            int height = Math.min(workingBitmap.getHeight() - y, Math.round(cropRectInBitmap.height()));
 
             if (width > 0 && height > 0) {
+                // Создаем новый Canvas и рисуем все объекты на текущую битмапу
+                Canvas canvas = new Canvas(workingBitmap);
                 for (DrawingObject obj : drawingObjects) {
-                    obj.draw(bitmapCanvas);
+                    obj.draw(canvas);
                 }
 
+                // Создаем обрезанную битмапу
                 Bitmap croppedBitmap = Bitmap.createBitmap(workingBitmap, x, y, width, height);
-                workingBitmap.recycle();
                 workingBitmap = croppedBitmap;
+
+                // Создаем новый canvas для рисования
                 bitmapCanvas = new Canvas(workingBitmap);
 
+                // Очищаем списки объектов и историю
                 drawingObjects.clear();
                 historyManager.clear();
 
+                // Сбрасываем матрицу и подгоняем изображение к экрану
                 imageMatrix.reset();
                 fitImageToView();
 
+                // Выключаем режим обрезки
                 cropMode = false;
                 cropRect = null;
                 invalidate();
@@ -312,6 +439,8 @@ public class EditorView extends View {
         float scaleX = (float) getWidth() / workingBitmap.getWidth();
         float scaleY = (float) getHeight() / workingBitmap.getHeight();
         float scale = Math.min(scaleX, scaleY);
+
+        // Ограничиваем масштаб, чтобы изображение не увеличивалось больше 100%
         if (scale > 1.0f) {
             scale = 1.0f;
         }
@@ -320,6 +449,14 @@ public class EditorView extends View {
         float dx = (getWidth() - workingBitmap.getWidth() * scale) / 2f;
         float dy = (getHeight() - workingBitmap.getHeight() * scale) / 2f;
         imageMatrix.postTranslate(dx, dy);
+
+        // Обновляем обратную матрицу
+        updateInverseMatrix();
+
+        // Обновляем границы изображения
+        imageBounds.set(0, 0, workingBitmap.getWidth(), workingBitmap.getHeight());
+        imageMatrix.mapRect(imageBounds);
+
         invalidate();
     }
 
@@ -339,66 +476,83 @@ public class EditorView extends View {
     public void rotateImage(int degrees) {
         if (workingBitmap == null) return;
 
+        // Применяем все текущие рисунки к изображению перед поворотом
+        applyDrawingsToCanvas();
+
+        // Создаем матрицу поворота с центром в середине изображения
         Matrix rotateMatrix = new Matrix();
         rotateMatrix.setRotate(degrees, workingBitmap.getWidth() / 2f, workingBitmap.getHeight() / 2f);
 
-        Bitmap rotatedBitmap = Bitmap.createBitmap(
-                workingBitmap, 0, 0, workingBitmap.getWidth(), workingBitmap.getHeight(), rotateMatrix, true);
+        try {
+            // Создаем повернутую битмапу
+            Bitmap rotatedBitmap = Bitmap.createBitmap(
+                    workingBitmap, 0, 0, workingBitmap.getWidth(), workingBitmap.getHeight(), rotateMatrix, true);
 
-        if (rotatedBitmap != workingBitmap) {
-            workingBitmap.recycle();
-            workingBitmap = rotatedBitmap;
-            bitmapCanvas = new Canvas(workingBitmap);
+            // Обновляем рабочую битмапу и канвас
+            if (rotatedBitmap != workingBitmap) {
+                workingBitmap.recycle();
+                workingBitmap = rotatedBitmap;
+                bitmapCanvas = new Canvas(workingBitmap);
+            }
+
+            // Очищаем список объектов рисования и историю
+            drawingObjects.clear();
+            historyManager.clear();
+
+            // Обновляем отображение
+            fitImageToView();
+            invalidate();
+            Log.d(TAG, "Изображение повернуто на " + degrees + " градусов");
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "Ошибка при повороте изображения: не хватает памяти", e);
         }
-
-        for (DrawingObject obj : drawingObjects) {
-            float oldStartX = obj.getStartX();
-            float oldStartY = obj.getStartY();
-            float oldEndX = obj.getEndX();
-            float oldEndY = obj.getEndY();
-            float[] points = {oldStartX, oldStartY, oldEndX, oldEndY};
-            rotateMatrix.mapPoints(points);
-            obj.updateStartPoint(points[0], points[1]);
-            obj.updateEndPoint(points[2], points[3]);
-        }
-
-        fitImageToView();
-        invalidate();
-        Log.d(TAG, "Изображение повернуто на " + degrees + " градусов");
     }
 
     public void flipImage() {
         if (workingBitmap == null) return;
 
+        // Применяем все текущие рисунки к изображению перед отражением
+        applyDrawingsToCanvas();
+
+        // Создаем матрицу отражения
         Matrix flipMatrix = new Matrix();
         flipMatrix.setScale(-1, 1);
         flipMatrix.postTranslate(workingBitmap.getWidth(), 0);
 
-        Bitmap flippedBitmap = Bitmap.createBitmap(
-                workingBitmap, 0, 0, workingBitmap.getWidth(), workingBitmap.getHeight(), flipMatrix, true);
+        try {
+            // Создаем отраженную битмапу
+            Bitmap flippedBitmap = Bitmap.createBitmap(
+                    workingBitmap, 0, 0, workingBitmap.getWidth(), workingBitmap.getHeight(), flipMatrix, true);
 
-        if (flippedBitmap != workingBitmap) {
-            workingBitmap.recycle();
-            workingBitmap = flippedBitmap;
-            bitmapCanvas = new Canvas(workingBitmap);
+            // Обновляем рабочую битмапу и канвас
+            if (flippedBitmap != workingBitmap) {
+                workingBitmap.recycle();
+                workingBitmap = flippedBitmap;
+                bitmapCanvas = new Canvas(workingBitmap);
+            }
+
+            // Очищаем список объектов рисования и историю
+            drawingObjects.clear();
+            historyManager.clear();
+
+            // Обновляем отображение
+            fitImageToView();
+            invalidate();
+            Log.d(TAG, "Изображение отражено по горизонтали");
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "Ошибка при отражении изображения: не хватает памяти", e);
         }
+    }
 
-        // Отражаем координаты объектов рисования
-        for (DrawingObject obj : drawingObjects) {
-            float oldStartX = obj.getStartX();
-            float oldStartY = obj.getStartY();
-            float oldEndX = obj.getEndX();
-            float oldEndY = obj.getEndY();
-            // Пересчитываем координаты относительно ширины изображения
-            float newStartX = workingBitmap.getWidth() - oldStartX;
-            float newEndX = workingBitmap.getWidth() - oldEndX;
-            obj.updateStartPoint(newStartX, oldStartY);
-            obj.updateEndPoint(newEndX, oldEndY);
+    // Метод для применения всех текущих рисунков к канвасу
+    private void applyDrawingsToCanvas() {
+        if (workingBitmap != null && !drawingObjects.isEmpty()) {
+            for (DrawingObject obj : drawingObjects) {
+                obj.draw(bitmapCanvas);
+            }
+            drawingObjects.clear();
+            historyManager.clear();
         }
-
-        fitImageToView();
-        invalidate();
-        Log.d(TAG, "Изображение и рисунки отражены");
     }
 
     public void setBrushSize(int size) {
@@ -435,14 +589,25 @@ public class EditorView extends View {
     public Bitmap getFinalBitmap() {
         if (workingBitmap == null) return null;
 
-        Bitmap resultBitmap = Bitmap.createBitmap(
-                workingBitmap.getWidth(), workingBitmap.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(resultBitmap);
-        canvas.drawBitmap(workingBitmap, 0, 0, null);
-        for (DrawingObject obj : drawingObjects) {
-            obj.draw(canvas);
+        try {
+            // Создаем копию текущего изображения
+            Bitmap resultBitmap = Bitmap.createBitmap(
+                    workingBitmap.getWidth(), workingBitmap.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(resultBitmap);
+
+            // Рисуем текущее изображение
+            canvas.drawBitmap(workingBitmap, 0, 0, null);
+
+            // Рисуем все объекты поверх
+            for (DrawingObject obj : drawingObjects) {
+                obj.draw(canvas);
+            }
+
+            Log.d(TAG, "Создано финальное изображение");
+            return resultBitmap;
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "Ошибка при создании финального изображения: не хватает памяти", e);
+            return null;
         }
-        Log.d(TAG, "Создано финальное изображение");
-        return resultBitmap;
     }
 }
