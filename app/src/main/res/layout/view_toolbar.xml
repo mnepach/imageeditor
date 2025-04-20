@@ -2,82 +2,79 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="8dp">
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:background="?attr/colorPrimary">
 
-    <!-- Main toolbar -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+    <ImageButton
+        android:id="@+id/btnUndo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_media_previous"
+        android:contentDescription="Undo" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+    <ImageButton
+        android:id="@+id/btnRedo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_media_next"
+        android:contentDescription="Redo" />
 
-            <ImageButton
-                android:id="@+id/btnUndo"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/undo"
-                android:src="@android:drawable/ic_menu_revert" />
+    <ImageButton
+        android:id="@+id/btnCrop"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_crop"
+        android:contentDescription="Crop" />
 
-            <ImageButton
-                android:id="@+id/btnRedo"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/redo"
-                android:src="@android:drawable/ic_menu_revert"
-                android:rotation="180" />
+    <ImageButton
+        android:id="@+id/btnRotate"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_rotate"
+        android:contentDescription="Rotate" />
 
-            <ImageButton
-                android:id="@+id/btnCrop"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/crop"
-                android:src="@android:drawable/ic_menu_crop" />
+    <ImageButton
+        android:id="@+id/btnFlip"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_revert"
+        android:contentDescription="Flip" />
 
-            <ImageButton
-                android:id="@+id/btnRotate"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/rotate"
-                android:src="@android:drawable/ic_menu_rotate" />
+    <ImageButton
+        android:id="@+id/btnDraw"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_edit"
+        android:contentDescription="Draw" />
 
-            <ImageButton
-                android:id="@+id/btnFlip"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/flip"
-                android:src="@android:drawable/ic_menu_always_landscape_portrait" />
+    <ImageButton
+        android:id="@+id/btnShape"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_share"
+        android:contentDescription="Shape" />
 
-            <ImageButton
-                android:id="@+id/btnDraw"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/draw"
-                android:src="@android:drawable/ic_menu_edit" />
+    <ImageButton
+        android:id="@+id/btnText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_add"
+        android:contentDescription="Text" />
 
-            <ImageButton
-                android:id="@+id/btnShape"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/shape"
-                android:src="@android:drawable/ic_menu_gallery" />
-
-            <ImageButton
-                android:id="@+id/btnText"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/text"
-                android:src="@android:drawable/ic_dialog_email" />
-
-            <ImageButton
-                android:id="@+id/btnSave"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:contentDescription="@string/save"
-                android:src="@android:drawable/ic_menu_save" />
-        </LinearLayout>
-    </HorizontalScrollView>
+    <ImageButton
+        android:id="@+id/btnSave"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@android:drawable/ic_menu_save"
+        android:contentDescription="Save" />
 </LinearLayout>

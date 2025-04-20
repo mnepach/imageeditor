@@ -10,13 +10,8 @@ import android.widget.LinearLayout;
 import com.example.imageeditor.R;
 
 public class ToolbarView extends LinearLayout {
-
     public enum Tool {
         UNDO, REDO, CROP, ROTATE, FLIP, DRAW, SHAPE, TEXT, SAVE
-    }
-
-    public interface OnToolSelectedListener {
-        void onToolSelected(Tool tool);
     }
 
     private OnToolSelectedListener listener;
@@ -36,19 +31,9 @@ public class ToolbarView extends LinearLayout {
         init(context);
     }
 
-    public void refreshState() {
-        invalidate();
-        for (int i = 0; i < getChildCount(); i++) {
-            View child = getChildAt(i);
-            child.setEnabled(true);
-            child.invalidate();
-        }
-    }
-
     private void init(Context context) {
         LayoutInflater.from(context).inflate(R.layout.view_toolbar, this, true);
 
-        // Initialize buttons with appropriate IDs from the layout
         ImageButton btnUndo = findViewById(R.id.btnUndo);
         ImageButton btnRedo = findViewById(R.id.btnRedo);
         ImageButton btnCrop = findViewById(R.id.btnCrop);
@@ -59,44 +44,32 @@ public class ToolbarView extends LinearLayout {
         ImageButton btnText = findViewById(R.id.btnText);
         ImageButton btnSave = findViewById(R.id.btnSave);
 
-        btnUndo.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.UNDO);
-        });
-
-        btnRedo.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.REDO);
-        });
-
-        btnCrop.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.CROP);
-        });
-
-        btnRotate.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.ROTATE);
-        });
-
-        btnFlip.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.FLIP);
-        });
-
-        btnDraw.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.DRAW);
-        });
-
-        btnShape.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.SHAPE);
-        });
-
-        btnText.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.TEXT);
-        });
-
-        btnSave.setOnClickListener(v -> {
-            if (listener != null) listener.onToolSelected(Tool.SAVE);
-        });
+        btnUndo.setOnClickListener(v -> notifyToolSelected(Tool.UNDO));
+        btnRedo.setOnClickListener(v -> notifyToolSelected(Tool.REDO));
+        btnCrop.setOnClickListener(v -> notifyToolSelected(Tool.CROP));
+        btnRotate.setOnClickListener(v -> notifyToolSelected(Tool.ROTATE));
+        btnFlip.setOnClickListener(v -> notifyToolSelected(Tool.FLIP));
+        btnDraw.setOnClickListener(v -> notifyToolSelected(Tool.DRAW));
+        btnShape.setOnClickListener(v -> notifyToolSelected(Tool.SHAPE));
+        btnText.setOnClickListener(v -> notifyToolSelected(Tool.TEXT));
+        btnSave.setOnClickListener(v -> notifyToolSelected(Tool.SAVE));
     }
 
     public void setOnToolSelectedListener(OnToolSelectedListener listener) {
         this.listener = listener;
+    }
+
+    private void notifyToolSelected(Tool tool) {
+        if (listener != null) {
+            listener.onToolSelected(tool);
+        }
+    }
+
+    public void refreshState() {
+        // Пустой метод, может быть расширен для обновления состояния кнопок
+    }
+
+    public interface OnToolSelectedListener {
+        void onToolSelected(Tool tool);
     }
 }

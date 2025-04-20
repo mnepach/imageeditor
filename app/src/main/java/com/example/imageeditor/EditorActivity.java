@@ -12,6 +12,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.ScaleAnimation;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -20,13 +21,10 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.imageeditor.history.DrawCommand;
-import com.example.imageeditor.history.HistoryManager;
 import com.example.imageeditor.utils.BitmapUtils;
 import com.example.imageeditor.views.EditorView;
 import com.example.imageeditor.views.ToolbarView;
@@ -47,9 +45,9 @@ public class EditorActivity extends AppCompatActivity {
     private Button btnColor;
     private Button btnShapeColor;
     private Button btnTextColor;
-    private TextView txtCurrentColor;
-    private TextView txtCurrentShapeColor;
-    private TextView txtCurrentTextColor;
+    private View colorIndicatorBrush;
+    private View colorIndicatorShape;
+    private View colorIndicatorText;
     private EditText editTextInput;
     private CheckBox checkBoxBold;
     private CheckBox checkBoxItalic;
@@ -85,9 +83,9 @@ public class EditorActivity extends AppCompatActivity {
         btnColor = findViewById(R.id.btnColor);
         btnShapeColor = findViewById(R.id.btnShapeColor);
         btnTextColor = findViewById(R.id.btnTextColor);
-        txtCurrentColor = findViewById(R.id.txtCurrentColor);
-        txtCurrentShapeColor = findViewById(R.id.txtCurrentShapeColor);
-        txtCurrentTextColor = findViewById(R.id.txtCurrentTextColor);
+        colorIndicatorBrush = findViewById(R.id.colorIndicatorBrush);
+        colorIndicatorShape = findViewById(R.id.colorIndicatorShape);
+        colorIndicatorText = findViewById(R.id.colorIndicatorText);
         editTextInput = findViewById(R.id.editTextInput);
         checkBoxBold = findViewById(R.id.checkBoxBold);
         checkBoxItalic = findViewById(R.id.checkBoxItalic);
@@ -214,35 +212,18 @@ public class EditorActivity extends AppCompatActivity {
         GradientDrawable colorCircle = new GradientDrawable();
         colorCircle.setShape(GradientDrawable.OVAL);
         colorCircle.setColor(currentColor);
+        colorCircle.setStroke(2, Color.BLACK);
 
-        if (txtCurrentColor != null) {
-            txtCurrentColor.setBackground(colorCircle);
-            txtCurrentColor.setText(getColorName(currentColor));
+        if (colorIndicatorBrush != null) {
+            colorIndicatorBrush.setBackground(colorCircle);
         }
-
-        if (txtCurrentShapeColor != null) {
-            txtCurrentShapeColor.setBackground(colorCircle);
-            txtCurrentShapeColor.setText(getColorName(currentColor));
+        if (colorIndicatorShape != null) {
+            colorIndicatorShape.setBackground(colorCircle);
         }
-
-        if (txtCurrentTextColor != null) {
-            txtCurrentTextColor.setBackground(colorCircle);
-            txtCurrentTextColor.setText(getColorName(currentColor));
+        if (colorIndicatorText != null) {
+            colorIndicatorText.setBackground(colorCircle);
         }
-    }
-
-    private String getColorName(int color) {
-        switch (color) {
-            case 0xFF000000: return "Черный";
-            case 0xFFFFFFFF: return "Белый";
-            case 0xFFFF0000: return "Красный";
-            case 0xFF00FF00: return "Зеленый";
-            case 0xFF0000FF: return "Синий";
-            case 0xFFFFFF00: return "Желтый";
-            case 0xFF00FFFF: return "Голубой";
-            case 0xFFFF00FF: return "Пурпурный";
-            default: return "#" + Integer.toHexString(color).substring(2).toUpperCase();
-        }
+        Log.d(TAG, "Обновлены индикаторы цвета: #" + Integer.toHexString(currentColor));
     }
 
     private void setupSeekBar() {
@@ -331,6 +312,7 @@ public class EditorActivity extends AppCompatActivity {
                 "Черный", "Белый", "Красный", "Зеленый",
                 "Синий", "Желтый", "Голубой", "Пурпурный"
         };
+        final int[] selectedColor = {currentColor}; // Временное хранение выбранного цвета
 
         LinearLayout colorLayout = new LinearLayout(this);
         colorLayout.setOrientation(LinearLayout.VERTICAL);
@@ -349,14 +331,16 @@ public class EditorActivity extends AppCompatActivity {
             colorButton.setTextColor(colors[i] == 0xFF000000 || colors[i] == 0xFF0000FF ? Color.WHITE : Color.BLACK);
 
             colorButton.setOnClickListener(v -> {
-                currentColor = colors[colorIndex];
-                switch (colorTargetType) {
-                    case 0: editorView.setBrushColor(currentColor); break;
-                    case 1: editorView.setBrushColor(currentColor); break;
-                    case 2: editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor); break;
-                }
-                updateColorIndicators();
-                Log.d(TAG, "Выбран цвет: " + colorNames[colorIndex]);
+                selectedColor[0] = colors[colorIndex];
+                // Анимация нажатия
+                ScaleAnimation scaleAnimation = new ScaleAnimation(
+                        1.0f, 0.9f, 1.0f, 0.9f,
+                        ScaleAnimation.RELATIVE_TO_SELF, 0.5f,
+                        ScaleAnimation.RELATIVE_TO_SELF, 0.5f);
+                scaleAnimation.setDuration(200);
+                scaleAnimation.setFillAfter(false);
+                v.startAnimation(scaleAnimation);
+                Log.d(TAG, "Выбран цвет (временно): " + colorNames[colorIndex]);
             });
 
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -366,12 +350,25 @@ public class EditorActivity extends AppCompatActivity {
             colorLayout.addView(colorButton, params);
         }
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Выберите цвет")
                 .setView(colorLayout)
-                .setNegativeButton("Отмена", null)
-                .create()
-                .show();
+                .setPositiveButton("ОК", (d, which) -> {
+                    currentColor = selectedColor[0];
+                    switch (colorTargetType) {
+                        case 0: editorView.setBrushColor(currentColor); break;
+                        case 1: editorView.setBrushColor(currentColor); break;
+                        case 2: editorView.setTextDrawingProperties(currentText, currentFont, currentTextStyle, currentTextSize, currentColor); break;
+                    }
+                    updateColorIndicators();
+                    Log.d(TAG, "Цвет подтвержден: #" + Integer.toHexString(currentColor));
+                    d.dismiss(); // Закрываем диалог
+                })
+                .setNegativeButton("Отмена", (d, which) -> {
+                    Log.d(TAG, "Выбор цвета отменен");
+                })
+                .create();
+        dialog.show();
     }
 
     private void hideAllPanels() {

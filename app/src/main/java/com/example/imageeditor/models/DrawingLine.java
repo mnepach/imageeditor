@@ -9,7 +9,6 @@ public class DrawingLine extends DrawingObject {
 
     public DrawingLine(float startX, float startY, int color, int strokeWidth) {
         super(startX, startY, color, strokeWidth);
-
         this.path = new Path();
         this.path.moveTo(startX, startY);
         this.paint.setStyle(Paint.Style.STROKE);
@@ -28,7 +27,6 @@ public class DrawingLine extends DrawingObject {
 
     @Override
     public boolean containsPoint(float x, float y) {
-        // Для линий проверять труднее, поэтому просто используем базовую реализацию
         return super.containsPoint(x, y);
     }
 }

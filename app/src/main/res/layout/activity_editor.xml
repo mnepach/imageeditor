@@ -5,7 +5,6 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- EditorView for image editing -->
     <com.example.imageeditor.views.EditorView
         android:id="@+id/editorView"
         android:layout_width="match_parent"
@@ -20,7 +19,6 @@
         android:visibility="gone"
         android:layout_gravity="center" />
 
-    <!-- Settings panels -->
     <LinearLayout
         android:id="@+id/settingsPanel"
         android:layout_width="match_parent"
@@ -28,7 +26,6 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <!-- Brush settings -->
         <LinearLayout
             android:id="@+id/brushSettings"
             android:layout_width="match_parent"
@@ -49,14 +46,26 @@
                 android:max="50"
                 android:progress="5" />
 
-            <Button
-                android:id="@+id/btnColor"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/color" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <Button
+                    android:id="@+id/btnColor"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="@string/color" />
+                <View
+                    android:id="@+id/colorIndicatorBrush"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/circle_background" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Shape settings -->
         <LinearLayout
             android:id="@+id/shapeSettings"
             android:layout_width="match_parent"
@@ -77,14 +86,26 @@
                 android:layout_height="wrap_content"
                 android:text="@string/circle" />
 
-            <Button
-                android:id="@+id/btnShapeColor"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/color" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <Button
+                    android:id="@+id/btnShapeColor"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="@string/color" />
+                <View
+                    android:id="@+id/colorIndicatorShape"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/circle_background" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Text settings -->
         <LinearLayout
             android:id="@+id/textSettings"
             android:layout_width="match_parent"
@@ -134,44 +155,30 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
-            <Button
-                android:id="@+id/btnTextColor"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/color"
-                android:layout_marginTop="8dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <Button
+                    android:id="@+id/btnTextColor"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="@string/color"
+                    android:layout_marginTop="8dp" />
+                <View
+                    android:id="@+id/colorIndicatorText"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/circle_background" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- New ToolbarView -->
     <com.example.imageeditor.views.ToolbarView
         android:id="@+id/toolbarView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
-
-    <!-- Add these near the color buttons in the layout file -->
-    <TextView
-        android:id="@+id/txtCurrentColor"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:gravity="center"
-        android:textSize="12sp"
-        android:textColor="#FFFFFF" />
-
-    <TextView
-        android:id="@+id/txtCurrentShapeColor"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:gravity="center"
-        android:textSize="12sp"
-        android:textColor="#FFFFFF" />
-
-    <TextView
-        android:id="@+id/txtCurrentTextColor"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:gravity="center"
-        android:textSize="12sp"
-        android:textColor="#FFFFFF" />
-
 </LinearLayout>
