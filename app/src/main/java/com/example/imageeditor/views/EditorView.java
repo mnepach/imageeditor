@@ -5,13 +5,15 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.example.imageeditor.history.DrawCommand;
+import com.example.imageeditor.history.HistoryManager;
 import com.example.imageeditor.models.DrawingCircle;
 import com.example.imageeditor.models.DrawingLine;
 import com.example.imageeditor.models.DrawingObject;
@@ -20,16 +22,14 @@ import com.example.imageeditor.models.DrawingText;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Stack;
 
 public class EditorView extends View {
+    private static final String TAG = "EditorView";
 
     private DrawingObject selectedObject = null;
     private boolean isDragging = false;
-    private float lastTouchX, lastTouchY;
-    private float[] lastTouchPoint = new float[2]; // For storing bitmap coordinates
+    private float[] lastTouchPoint = new float[2];
 
-    // Drawing modes
     public enum DrawingMode {
         NONE, LINE, RECTANGLE, CIRCLE, TEXT
     }
@@ -37,33 +37,25 @@ public class EditorView extends View {
     private DrawingMode currentDrawingMode = DrawingMode.NONE;
     private boolean cropMode = false;
 
-    // Original image and working copy
     private Bitmap originalBitmap;
     private Bitmap workingBitmap;
     private Matrix imageMatrix;
 
-    // Drawing parameters
-    private int brushColor = 0xFF000000; // Black by default
+    private int brushColor = 0xFF000000;
     private int brushSize = 5;
 
-    // For drawing objects
     private DrawingObject currentDrawingObject;
 
-    // For text drawing
     private String drawingText = "";
     private String fontFamily = "sans-serif";
     private int textStyle = Typeface.NORMAL;
     private int textSize = 40;
 
-    // Crop rectangle
     private RectF cropRect;
 
-    // Lists of drawing objects and operations
     private List<DrawingObject> drawingObjects = new ArrayList<>();
-    private Stack<DrawingObject> undoStack = new Stack<>();
-    private Stack<DrawingObject> redoStack = new Stack<>();
+    private HistoryManager historyManager = new HistoryManager();
 
-    // Constructors
     public EditorView(Context context) {
         super(context);
         init();
@@ -80,7 +72,6 @@ public class EditorView extends View {
     }
 
     private void init() {
-        // Initialize matrix
         imageMatrix = new Matrix();
     }
 
@@ -88,28 +79,23 @@ public class EditorView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        // Draw bitmap if available
         if (workingBitmap != null) {
             canvas.drawBitmap(workingBitmap, imageMatrix, null);
         }
 
-        // Save canvas state and apply imageMatrix for objects
         canvas.save();
         canvas.concat(imageMatrix);
 
-        // Draw all existing objects in bitmap coordinates
         for (DrawingObject obj : drawingObjects) {
             obj.draw(canvas);
         }
 
-        // Draw current object if it exists
         if (currentDrawingObject != null) {
             currentDrawingObject.draw(canvas);
         }
 
         canvas.restore();
 
-        // Draw crop rectangle in screen coordinates
         if (cropMode && cropRect != null) {
             Paint cropPaint = new Paint();
             cropPaint.setColor(0xFFFFFFFF);
@@ -131,7 +117,6 @@ public class EditorView extends View {
         float x = event.getX();
         float y = event.getY();
 
-        // Convert screen coordinates to bitmap coordinates
         Matrix inverseMatrix = new Matrix();
         imageMatrix.invert(inverseMatrix);
         float[] points = {x, y};
@@ -141,10 +126,10 @@ public class EditorView extends View {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
+                Log.d(TAG, "Касание: (" + bitmapX + ", " + bitmapY + ")");
                 if (cropMode) {
                     handleCropStart(x, y);
                 } else {
-                    // Check if click is on existing object
                     selectedObject = null;
                     for (int i = drawingObjects.size() - 1; i >= 0; i--) {
                         DrawingObject obj = drawingObjects.get(i);
@@ -153,6 +138,7 @@ public class EditorView extends View {
                             isDragging = true;
                             lastTouchPoint[0] = bitmapX;
                             lastTouchPoint[1] = bitmapY;
+                            Log.d(TAG, "Выбран объект: " + obj.getClass().getSimpleName());
                             break;
                         }
                     }
@@ -168,10 +154,8 @@ public class EditorView extends View {
                 } else if (isDragging && selectedObject != null) {
                     float dx = bitmapX - lastTouchPoint[0];
                     float dy = bitmapY - lastTouchPoint[1];
-
                     selectedObject.updateStartPoint(selectedObject.getStartX() + dx, selectedObject.getStartY() + dy);
                     selectedObject.updateEndPoint(selectedObject.getEndX() + dx, selectedObject.getEndY() + dy);
-
                     lastTouchPoint[0] = bitmapX;
                     lastTouchPoint[1] = bitmapY;
                 } else {
@@ -202,12 +186,15 @@ public class EditorView extends View {
         switch (currentDrawingMode) {
             case LINE:
                 currentDrawingObject = new DrawingLine(bitmapX, bitmapY, brushColor, brushSize);
+                Log.d(TAG, "Начато рисование линии");
                 break;
             case RECTANGLE:
                 currentDrawingObject = new DrawingRectangle(bitmapX, bitmapY, brushColor, brushSize);
+                Log.d(TAG, "Начато рисование прямоугольника");
                 break;
             case CIRCLE:
                 currentDrawingObject = new DrawingCircle(bitmapX, bitmapY, brushColor, brushSize);
+                Log.d(TAG, "Начато рисование круга");
                 break;
             case TEXT:
                 if (!drawingText.isEmpty()) {
@@ -230,15 +217,16 @@ public class EditorView extends View {
     private void handleDrawEnd() {
         if (currentDrawingObject != null) {
             drawingObjects.add(currentDrawingObject);
-            undoStack.push(currentDrawingObject);
-            redoStack.clear();
+            historyManager.executeCommand(new DrawCommand(drawingObjects, currentDrawingObject));
             currentDrawingObject = null;
+            Log.d(TAG, "Объект добавлен в историю");
         }
     }
 
     private void handleCropStart(float x, float y) {
         if (cropRect == null) {
             cropRect = new RectF(x, y, x, y);
+            Log.d(TAG, "Начата обрезка: (" + x + ", " + y + ")");
         }
     }
 
@@ -250,32 +238,27 @@ public class EditorView extends View {
     }
 
     private void handleCropEnd() {
-        // Normalize crop rectangle (make sure left < right and top < bottom)
         if (cropRect != null) {
             if (cropRect.width() < 10 || cropRect.height() < 10) {
-                // If too small, cancel crop
                 cropRect = null;
+                Log.w(TAG, "Обрезка отменена: область слишком мала");
                 return;
             }
-
-            // Otherwise, finalize crop rectangle
             float left = Math.min(cropRect.left, cropRect.right);
             float top = Math.min(cropRect.top, cropRect.bottom);
             float right = Math.max(cropRect.left, cropRect.right);
             float bottom = Math.max(cropRect.top, cropRect.bottom);
-
             cropRect.set(left, top, right, bottom);
+            Log.d(TAG, "Обрезка завершена: " + cropRect.toString());
         }
     }
 
     private void addTextAtPosition(float x, float y) {
         DrawingText text = new DrawingText(x, y, drawingText, fontFamily, textStyle, textSize, brushColor);
         drawingObjects.add(text);
-        undoStack.push(text);
-        redoStack.clear();
+        historyManager.executeCommand(new DrawCommand(drawingObjects, text));
+        Log.d(TAG, "Добавлен текст: " + drawingText);
     }
-
-    // Public methods for EditorActivity to use
 
     public void applyCrop() {
         if (cropMode && cropRect != null && workingBitmap != null) {
@@ -294,15 +277,12 @@ public class EditorView extends View {
                 workingBitmap.recycle();
                 workingBitmap = croppedBitmap;
 
-                // Adjust drawing objects coordinates
                 List<DrawingObject> objectsToKeep = new ArrayList<>();
                 for (DrawingObject obj : drawingObjects) {
                     float newStartX = obj.getStartX() - x;
                     float newStartY = obj.getStartY() - y;
                     float newEndX = obj.getEndX() - x;
                     float newEndY = obj.getEndY() - y;
-
-                    // Check if object is at least partially in the new image bounds
                     boolean isVisible = !(newEndX < 0 || newStartX > width || newEndY < 0 || newStartY > height);
                     if (isVisible) {
                         obj.updateStartPoint(newStartX, newStartY);
@@ -311,24 +291,20 @@ public class EditorView extends View {
                     }
                 }
 
-                // Replace the objects list with only the visible ones
                 drawingObjects.clear();
                 drawingObjects.addAll(objectsToKeep);
-
-                // Clear and rebuild undo stack
-                undoStack.clear();
+                historyManager.clear();
                 for (DrawingObject obj : objectsToKeep) {
-                    undoStack.push(obj);
+                    historyManager.executeCommand(new DrawCommand(drawingObjects, obj));
                 }
-                redoStack.clear();
 
-                // Reset transformations and fit the cropped image to view
                 imageMatrix.reset();
                 fitImageToView();
 
                 cropMode = false;
                 cropRect = null;
                 invalidate();
+                Log.d(TAG, "Обрезка применена: " + width + "x" + height);
             }
         }
     }
@@ -340,6 +316,7 @@ public class EditorView extends View {
             imageMatrix.reset();
             fitImageToView();
             invalidate();
+            Log.d(TAG, "Установлено изображение: " + bitmap.getWidth() + "x" + bitmap.getHeight());
         }
     }
 
@@ -347,36 +324,31 @@ public class EditorView extends View {
         if (workingBitmap == null || getWidth() == 0 || getHeight() == 0) return;
 
         imageMatrix.reset();
-
-        // Calculate scaling to fit the image without zooming in
         float scaleX = (float) getWidth() / workingBitmap.getWidth();
         float scaleY = (float) getHeight() / workingBitmap.getHeight();
         float scale = Math.min(scaleX, scaleY);
-
-        // If scale > 1, it means we'd zoom in - avoid that by setting scale to 1
         if (scale > 1.0f) {
             scale = 1.0f;
         }
 
         imageMatrix.setScale(scale, scale);
-
-        // Center the image in the view
         float dx = (getWidth() - workingBitmap.getWidth() * scale) / 2f;
         float dy = (getHeight() - workingBitmap.getHeight() * scale) / 2f;
         imageMatrix.postTranslate(dx, dy);
-
         invalidate();
     }
 
     public void setDrawingMode(DrawingMode mode) {
         this.currentDrawingMode = mode;
         this.cropMode = false;
+        Log.d(TAG, "Режим рисования: " + mode);
     }
 
     public void startCropMode() {
         cropMode = true;
         currentDrawingMode = DrawingMode.NONE;
         cropRect = null;
+        Log.d(TAG, "Режим обрезки активирован");
     }
 
     public void rotateImage(int degrees) {
@@ -386,10 +358,7 @@ public class EditorView extends View {
         rotateMatrix.setRotate(degrees, workingBitmap.getWidth() / 2f, workingBitmap.getHeight() / 2f);
 
         Bitmap rotatedBitmap = Bitmap.createBitmap(
-                workingBitmap,
-                0, 0,
-                workingBitmap.getWidth(), workingBitmap.getHeight(),
-                rotateMatrix, true);
+                workingBitmap, 0, 0, workingBitmap.getWidth(), workingBitmap.getHeight(), rotateMatrix, true);
 
         if (rotatedBitmap != workingBitmap) {
             workingBitmap.recycle();
@@ -398,6 +367,7 @@ public class EditorView extends View {
 
         fitImageToView();
         invalidate();
+        Log.d(TAG, "Изображение повернуто на " + degrees + " градусов");
     }
 
     public void flipImage() {
@@ -408,10 +378,7 @@ public class EditorView extends View {
         flipMatrix.postTranslate(workingBitmap.getWidth(), 0);
 
         Bitmap flippedBitmap = Bitmap.createBitmap(
-                workingBitmap,
-                0, 0,
-                workingBitmap.getWidth(), workingBitmap.getHeight(),
-                flipMatrix, true);
+                workingBitmap, 0, 0, workingBitmap.getWidth(), workingBitmap.getHeight(), flipMatrix, true);
 
         if (flippedBitmap != workingBitmap) {
             workingBitmap.recycle();
@@ -420,14 +387,17 @@ public class EditorView extends View {
 
         fitImageToView();
         invalidate();
+        Log.d(TAG, "Изображение отражено");
     }
 
     public void setBrushSize(int size) {
         this.brushSize = size;
+        Log.d(TAG, "Установлен размер кисти: " + size);
     }
 
     public void setBrushColor(int color) {
         this.brushColor = color;
+        Log.d(TAG, "Установлен цвет кисти: " + Integer.toHexString(color));
     }
 
     public void setTextDrawingProperties(String text, String fontFamily, int style, int textSize, int color) {
@@ -436,44 +406,32 @@ public class EditorView extends View {
         this.textStyle = style;
         this.textSize = textSize;
         this.brushColor = color;
+        Log.d(TAG, "Установлены свойства текста: " + text + ", " + fontFamily + ", " + style + ", " + textSize);
     }
 
     public void undo() {
-        if (!undoStack.isEmpty()) {
-            DrawingObject lastDrawn = undoStack.pop();
-            redoStack.push(lastDrawn);
-            drawingObjects.remove(lastDrawn);
-            invalidate();
-        }
+        historyManager.undo();
+        invalidate();
+        Log.d(TAG, "Выполнена отмена действия");
     }
 
     public void redo() {
-        if (!redoStack.isEmpty()) {
-            DrawingObject redoObj = redoStack.pop();
-            undoStack.push(redoObj);
-            drawingObjects.add(redoObj);
-            invalidate();
-        }
+        historyManager.redo();
+        invalidate();
+        Log.d(TAG, "Выполнено повторение действия");
     }
 
     public Bitmap getFinalBitmap() {
         if (workingBitmap == null) return null;
 
         Bitmap resultBitmap = Bitmap.createBitmap(
-                workingBitmap.getWidth(),
-                workingBitmap.getHeight(),
-                Bitmap.Config.ARGB_8888);
-
+                workingBitmap.getWidth(), workingBitmap.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(resultBitmap);
-
-        // Draw the original image first
         canvas.drawBitmap(workingBitmap, 0, 0, null);
-
-        // Draw all objects directly in bitmap coordinates
         for (DrawingObject obj : drawingObjects) {
             obj.draw(canvas);
         }
-
+        Log.d(TAG, "Создано финальное изображение");
         return resultBitmap;
     }
 }
