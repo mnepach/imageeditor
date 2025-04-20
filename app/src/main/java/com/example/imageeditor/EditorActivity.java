@@ -54,7 +54,6 @@ public class EditorActivity extends AppCompatActivity {
     private CheckBox checkBoxItalic;
     private Spinner spinnerFont;
     private Button btnConfirmCrop;
-    private Button btnCancelCrop;
 
     private int currentColor = Color.BLACK;
     private int currentBrushSize = 5;
@@ -94,7 +93,6 @@ public class EditorActivity extends AppCompatActivity {
         checkBoxItalic = findViewById(R.id.checkBoxItalic);
         spinnerFont = findViewById(R.id.spinnerFont);
         btnConfirmCrop = findViewById(R.id.btnConfirmCrop);
-        btnCancelCrop = findViewById(R.id.btnCancelCrop);
 
         // Настройка UI
         setupButtons();
@@ -144,18 +142,6 @@ public class EditorActivity extends AppCompatActivity {
                     editorView.redo();
                     hideAllPanels();
                     break;
-                case CROP:
-                    if (editorView.isCropModeActive()) {
-                        // Если режим обрезки уже активен, ничего не делаем
-                        btnConfirmCrop.setVisibility(View.VISIBLE);
-                        btnCancelCrop.setVisibility(View.VISIBLE);
-                    } else {
-                        editorView.startCropMode();
-                        btnConfirmCrop.setVisibility(View.VISIBLE);
-                        btnCancelCrop.setVisibility(View.VISIBLE);
-                    }
-                    hideAllPanels();
-                    break;
                 case ROTATE:
                     editorView.rotateImage(90);
                     hideAllPanels();
@@ -188,26 +174,11 @@ public class EditorActivity extends AppCompatActivity {
     private void resetCurrentMode() {
         currentMode = EditorMode.NONE;
         btnConfirmCrop.setVisibility(View.GONE);
-        btnCancelCrop.setVisibility(View.GONE);
     }
 
     private void setupButtons() {
         Button btnRectangle = findViewById(R.id.btnRectangle);
         Button btnCircle = findViewById(R.id.btnCircle);
-
-        btnConfirmCrop.setOnClickListener(v -> {
-            Log.d(TAG, "Подтверждение обрезки");
-            editorView.applyCrop();
-            btnConfirmCrop.setVisibility(View.GONE);
-            btnCancelCrop.setVisibility(View.GONE);
-        });
-
-        btnCancelCrop.setOnClickListener(v -> {
-            Log.d(TAG, "Отмена обрезки");
-            editorView.cancelCrop();
-            btnConfirmCrop.setVisibility(View.GONE);
-            btnCancelCrop.setVisibility(View.GONE);
-        });
 
         btnRectangle.setOnClickListener(v -> {
             Log.d(TAG, "Выбран прямоугольник");

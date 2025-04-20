@@ -49,7 +49,7 @@ public class EditorView extends View {
 
     private RectF cropRect;
     private boolean cropMode = false;
-    private int cropHandleRadius = 30;
+    private int cropHandleRadius = 40;
     private int selectedCropHandle = -1;
 
     public enum DrawingMode {
@@ -226,6 +226,12 @@ public class EditorView extends View {
 
     private void handleDrawMove(float bitmapX, float bitmapY) {
         if (currentDrawingObject != null) {
+            // Constrain coordinates to bitmap boundaries
+            if (workingBitmap != null) {
+                bitmapX = Math.max(0, Math.min(bitmapX, workingBitmap.getWidth()));
+                bitmapY = Math.max(0, Math.min(bitmapY, workingBitmap.getHeight()));
+            }
+
             if (currentDrawingObject instanceof DrawingLine) {
                 ((DrawingLine) currentDrawingObject).addPoint(bitmapX, bitmapY);
             } else {
